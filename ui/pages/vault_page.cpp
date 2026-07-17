@@ -81,6 +81,13 @@ void VaultPage::poll_job()
         m_unlocked = m_mode == Mode::Unlocked;
         if (m_mode == Mode::ShowMnemonic)
             m_mnemonic_show = std::move(m_job->secret);
+    } else if (m_job->error.find("passphrase") != std::string::npos) {
+        // Known trust-plane refusals ("bad passphrase", "wrong
+        // passphrase or corrupted vault") get translated text; anything
+        // unexpected stays verbatim — a raw diagnostic beats a wrong
+        // translation.
+        m_status = "vault.err.unlock";
+        m_status_is_key = true;
     } else {
         m_status = m_job->error;
         m_status_is_key = false;
