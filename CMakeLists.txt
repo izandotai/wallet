@@ -77,8 +77,8 @@ add_library(izan_trezor STATIC
 target_include_directories(izan_trezor PUBLIC ${TREZOR})
 # Upstream caches the mnemonic→seed mapping in static memory; that violates
 # the rule that all key material must be wipeable, so the caches stay off.
-target_compile_definitions(izan_trezor PUBLIC USE_BIP39_CACHE=0
-    USE_BIP32_CACHE=0)
+target_compile_definitions(izan_trezor PUBLIC USE_KECCAK=1
+    USE_BIP39_CACHE=0 USE_BIP32_CACHE=0)
 target_compile_options(izan_trezor PRIVATE -w)
 if(WIN32)
     target_link_libraries(izan_trezor PUBLIC bcrypt)
@@ -86,6 +86,7 @@ endif()
 
 add_library(izan_crypto STATIC
     core/crypto/bip39.cpp
+    core/crypto/eth.cpp
     core/crypto/hd.cpp
 )
 target_include_directories(izan_crypto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -94,6 +95,7 @@ target_link_libraries(izan_crypto PUBLIC izan_trezor)
 enable_testing()
 add_executable(izan_tests
     tests/bip39_test.cpp
+    tests/eth_test.cpp
     tests/hd_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto doctest::doctest)

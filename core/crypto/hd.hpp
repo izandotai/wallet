@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -27,6 +28,9 @@ public:
     // contains the private key — treat it like one.
     std::string xprv() const;
     std::string xpub() const;
+
+    // Uncompressed secp256k1 public key, 0x04 || X || Y.
+    std::array<uint8_t, 65> public_key_uncompressed() const;
 
     ~HdKey();
     HdKey(const HdKey&) = default;

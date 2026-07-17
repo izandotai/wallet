@@ -4,7 +4,9 @@
 
 extern "C" {
 #include <curves.h>
+#include <ecdsa.h>
 #include <memzero.h>
+#include <secp256k1.h>
 }
 
 namespace izan::crypto {
@@ -89,6 +91,13 @@ std::string HdKey::xpub() const
     std::string out(buf);
     memzero(&node, sizeof node);
     memzero(buf, sizeof buf);
+    return out;
+}
+
+std::array<uint8_t, 65> HdKey::public_key_uncompressed() const
+{
+    std::array<uint8_t, 65> out {};
+    ecdsa_get_public_key65(&secp256k1, node_.private_key, out.data());
     return out;
 }
 
