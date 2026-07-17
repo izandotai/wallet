@@ -400,6 +400,23 @@ int child_main(int argc, char** argv)
                 send_op(channel, Op::ProposalBody, body.data(), body.size());
                 break;
             }
+            case Op::Address: {
+                std::lock_guard lock(holder->mutex);
+                if (!holder->wallet) {
+                    send_err(channel, "locked");
+                    break;
+                }
+                try {
+                    const std::string addr
+                        = account_address(holder->wallet->entropy);
+                    send_op(channel, Op::AddressIs,
+                        reinterpret_cast<const uint8_t*>(addr.data()),
+                        addr.size());
+                } catch (const std::exception& e) {
+                    send_err(channel, e.what());
+                }
+                break;
+            }
             case Op::Reveal: {
                 throttle_bad_pass();
                 SecureBytes pass(frame->size() - 1);

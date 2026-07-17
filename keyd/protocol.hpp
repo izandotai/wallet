@@ -28,6 +28,10 @@ enum class Op : uint8_t {
     // dangerous read in the system, so it spends the passphrase like
     // an approval does.
     Reveal = 0x09, // body: passphrase bytes
+    // The wallet's own receive/sender address. Public data, but only
+    // derivable from the seed, so it answers only while unlocked —
+    // a locked keyd tells nobody what it guards.
+    Address = 0x0a, // body: empty
 
     // replies (keyd → UI)
     Hello = 0x40,       // body: version, hardening bitmask (sent once at start)
@@ -38,6 +42,7 @@ enum class Op : uint8_t {
     ProposalBody = 0x45, // body: u8 provenance, then payload bytes
     Entropy = 0x46,      // body: BIP-39 entropy bytes (16/32)
     Signed = 0x47,       // body: y_parity(1) || r(32) || s(32)
+    AddressIs = 0x48,    // body: utf-8 EIP-55 address
 };
 
 inline constexpr std::size_t kSignedBodyBytes = 65;

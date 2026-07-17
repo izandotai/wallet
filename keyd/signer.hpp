@@ -29,4 +29,8 @@ struct SignedDigest {
 SignedDigest sign_payload(
     const secure::SecureBytes& entropy, std::span<const uint8_t> payload);
 
+// The account's EIP-55 address — the same derivation as sign_payload,
+// stopping at the public half. Throws on an empty or rejected seed.
+std::string account_address(const secure::SecureBytes& entropy);
+
 }

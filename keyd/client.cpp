@@ -133,6 +133,23 @@ bool KeydClient::shutdown()
     return reply && !reply->empty() && reply->data()[0] == uint8_t(Op::Ok);
 }
 
+std::optional<std::string> KeydClient::address()
+{
+    const uint8_t frame[1] = { uint8_t(Op::Address) };
+    std::optional<SecureBytes> reply = request(frame, 1);
+    if (!reply || reply->empty()) {
+        m_last_error = "channel broken";
+        return std::nullopt;
+    }
+    if (reply->data()[0] != uint8_t(Op::AddressIs)) {
+        m_last_error.assign(reinterpret_cast<const char*>(reply->data()) + 1,
+            reply->size() - 1);
+        return std::nullopt;
+    }
+    return std::string(
+        reinterpret_cast<const char*>(reply->data()) + 1, reply->size() - 1);
+}
+
 std::optional<uint64_t> KeydClient::submit_ui(
     const std::vector<uint8_t>& payload)
 {

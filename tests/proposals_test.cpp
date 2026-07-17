@@ -325,10 +325,39 @@ TEST_CASE("signer: seed to signature, straight through")
     wire.s = out.sig.s;
     CHECK(recovered_signer(wire, digest) == kDevAccount0);
 
+    CHECK(account_address(entropy) == kDevAccount0);
+
     CHECK_THROWS_AS(
         sign_payload(entropy, std::vector<uint8_t> {}), std::invalid_argument);
     CHECK_THROWS_AS(
         sign_payload(SecureBytes(), payload), std::invalid_argument);
+    CHECK_THROWS_AS(account_address(SecureBytes()), std::invalid_argument);
+}
+
+TEST_CASE("keyd: the address answers only while unlocked")
+{
+    const std::string vaultPath = make_test_vault("correct horse");
+    KeydClient keyd = KeydClient::spawn(self_exe(), vaultPath);
+
+    // A locked keyd tells nobody what it guards.
+    CHECK(!keyd.address());
+    CHECK(keyd.last_error() == "locked");
+
+    REQUIRE(keyd.unlock(sb_from("correct horse")));
+    auto addr = keyd.address();
+    REQUIRE(addr);
+    CHECK(*addr == kDevAccount0);
+
+    REQUIRE(keyd.lock());
+    CHECK(!keyd.address());
+
+    CHECK(keyd.shutdown());
+    auto exit = keyd.wait_exit(5000);
+    REQUIRE(exit);
+    CHECK(*exit == 0);
+
+    std::filesystem::remove(vaultPath);
+    std::filesystem::remove(vaultPath + ".audit");
 }
 
 TEST_CASE("keyd proposals: a seedless vault approves nothing")

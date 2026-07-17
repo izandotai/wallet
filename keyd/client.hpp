@@ -62,6 +62,9 @@ public:
     // nullopt = channel broken.
     std::optional<bool> unlocked();
     bool shutdown();
+    // The wallet's account address; refuses while locked (the refusal
+    // lands in last_error()).
+    std::optional<std::string> address();
 
     // Submits over the proposal pipe with the session-subkey MAC that
     // marks the proposal as coming from this UI (§3.1 gap two).
