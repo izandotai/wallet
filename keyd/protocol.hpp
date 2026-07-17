@@ -34,10 +34,11 @@ enum class Op : uint8_t {
 inline constexpr uint8_t kProtocolVersion = 1;
 
 // Hello hardening bitmask: which §3.1 process protections engaged.
-inline constexpr uint8_t kHardenedDumps = 1 << 0;   // WER excluded
-inline constexpr uint8_t kHardenedDynCode = 1 << 1; // no dynamic code
-inline constexpr uint8_t kHardenedDllSig = 1 << 2;  // MS-signed DLLs only
-inline constexpr uint8_t kHardenedDllDirs = 1 << 3; // system32-only search
+inline constexpr uint8_t kHardenedDumps = 1 << 0;    // WER excluded
+inline constexpr uint8_t kHardenedDynCode = 1 << 1;  // no dynamic code
+inline constexpr uint8_t kHardenedDllSig = 1 << 2;   // MS-signed DLLs only
+inline constexpr uint8_t kHardenedDllDirs = 1 << 3;  // system32-only search
+inline constexpr uint8_t kHardenedAutoLock = 1 << 4; // lock/suspend wipe
 
 // Proposal-pipe protocol v1, spoken over the open named pipe. Any
 // same-user process may connect (agents must find the door), so

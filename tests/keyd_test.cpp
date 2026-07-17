@@ -4,13 +4,17 @@
 
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <string_view>
 
 #include <sodium.h>
 #include <windows.h>
 
+#include <wtsapi32.h>
+
 #include "core/secure/vault.hpp"
+#include "keyd/audit.hpp"
 #include "keyd/client.hpp"
 #include "keyd/protocol.hpp"
 #include "platform/ipc/pipe.hpp"
@@ -123,6 +127,7 @@ TEST_CASE("keyd child: hardened hello, vault custody, clean shutdown")
     CHECK((keyd.hello().hardened & izan::keyd::kHardenedDynCode));
     CHECK((keyd.hello().hardened & izan::keyd::kHardenedDllSig));
     CHECK((keyd.hello().hardened & izan::keyd::kHardenedDllDirs));
+    CHECK((keyd.hello().hardened & izan::keyd::kHardenedAutoLock));
 
     CHECK(keyd.unlocked() == false);
 
@@ -141,6 +146,54 @@ TEST_CASE("keyd child: hardened hello, vault custody, clean shutdown")
     REQUIRE(exit);
     CHECK(*exit == 0);
 
+    std::filesystem::remove(vaultPath);
+    std::filesystem::remove(vaultPath + ".bak");
+}
+
+TEST_CASE("keyd child: session lock wipes the unlocked vault")
+{
+    const std::string vaultPath = make_test_vault("correct horse");
+    const std::string auditPath = vaultPath + ".lock.audit";
+    std::filesystem::remove(auditPath);
+
+    izan::keyd::KeydClient keyd
+        = izan::keyd::KeydClient::spawn(self_exe(), vaultPath, auditPath);
+    REQUIRE(keyd.unlock(sb_from("correct horse")));
+    REQUIRE(keyd.unlocked() == true);
+
+    // Deliver exactly what the OS would on Win+L. The watcher window is
+    // findable by design; a hostile process using this path can only
+    // lock the vault, never open it.
+    HWND watch = FindWindowA("IzanKeydWatch", keyd.pipe_name().c_str());
+    REQUIRE(watch);
+    REQUIRE(PostMessageA(watch, WM_WTSSESSION_CHANGE, WTS_SESSION_LOCK, 0));
+
+    bool wiped = false;
+    for (int i = 0; i < 100 && !wiped; ++i) {
+        auto state = keyd.unlocked();
+        REQUIRE(state);
+        wiped = !*state;
+        if (!wiped)
+            Sleep(20);
+    }
+    CHECK(wiped);
+
+    CHECK(keyd.shutdown());
+    auto exit = keyd.wait_exit(5000);
+    REQUIRE(exit);
+    CHECK(*exit == 0);
+
+    // The wipe itself must be on the ledger.
+    CHECK(izan::keyd::AuditLog::verify(auditPath) == 1);
+    {
+        std::ifstream ledger(auditPath);
+        std::string line;
+        std::getline(ledger, line);
+        CHECK(
+            line.find("autolock reason=session-lock") != std::string::npos);
+    }
+
+    std::filesystem::remove(auditPath);
     std::filesystem::remove(vaultPath);
     std::filesystem::remove(vaultPath + ".bak");
 }

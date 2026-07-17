@@ -3,6 +3,7 @@
 #include <charconv>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -14,6 +15,7 @@
 #include "core/secure/secure_bytes.hpp"
 #include "core/secure/vault.hpp"
 #include "keyd/audit.hpp"
+#include "keyd/autolock.hpp"
 #include "keyd/hardening.hpp"
 #include "keyd/proposals.hpp"
 #include "keyd/protocol.hpp"
@@ -50,6 +52,14 @@ namespace {
         std::memcpy(frame.data() + 1, reason.data(), reason.size());
         return ch.send(frame.data(), frame.size());
     }
+
+    // The unlocked wallet, shared between the password loop and the
+    // autolock watcher — the one writer that may take it away from
+    // under the loop.
+    struct WalletHolder {
+        std::mutex mutex;
+        std::optional<vault::Wallet> wallet;
+    };
 
     // Everything the proposal-pipe thread shares with the password
     // loop. Heap-held behind shared_ptr because the thread is detached:
@@ -167,7 +177,7 @@ namespace {
 int child_main(int argc, char** argv)
 {
     // Before anything secret can exist in this process.
-    const uint8_t hardened = apply_process_hardening();
+    uint8_t hardened = apply_process_hardening();
 
     uint64_t inTok = 0, outTok = 0, keyTok = 0;
     std::string vaultPath, pipeName, auditPath;
@@ -218,11 +228,20 @@ int child_main(int argc, char** argv)
             pipeName, auditPath, std::move(macKey));
         std::thread(serve_proposals, plane).detach();
 
+        auto holder = std::make_shared<WalletHolder>();
+        if (start_autolock_watch(pipeName, [holder, plane](const char* why) {
+                std::lock_guard lock(holder->mutex);
+                if (holder->wallet) {
+                    holder->wallet.reset();
+                    plane->audit.append(std::string("autolock reason=") + why);
+                }
+            }))
+            hardened |= kHardenedAutoLock;
+
         const uint8_t hello[2] = { kProtocolVersion, hardened };
         if (!send_op(channel, Op::Hello, hello, sizeof hello))
             return 0;
 
-        std::optional<vault::Wallet> wallet;
         for (;;) {
             std::optional<SecureBytes> frame = channel.recv();
             if (!frame)
@@ -236,20 +255,26 @@ int child_main(int argc, char** argv)
                 if (!pass.empty())
                     std::memcpy(pass.data(), frame->data() + 1, pass.size());
                 try {
-                    wallet = vault::open(vaultPath, pass);
+                    vault::Wallet opened = vault::open(vaultPath, pass);
+                    std::lock_guard lock(holder->mutex);
+                    holder->wallet = std::move(opened);
                     send_op(channel, Op::Ok);
                 } catch (const std::exception& e) {
-                    wallet.reset();
+                    std::lock_guard lock(holder->mutex);
+                    holder->wallet.reset();
                     send_err(channel, e.what());
                 }
                 break;
             }
-            case Op::Lock:
-                wallet.reset();
+            case Op::Lock: {
+                std::lock_guard lock(holder->mutex);
+                holder->wallet.reset();
                 send_op(channel, Op::Ok);
                 break;
+            }
             case Op::Status: {
-                const uint8_t state = wallet.has_value() ? 1 : 0;
+                std::lock_guard lock(holder->mutex);
+                const uint8_t state = holder->wallet.has_value() ? 1 : 0;
                 send_op(channel, Op::State, &state, 1);
                 break;
             }
@@ -327,10 +352,12 @@ int child_main(int argc, char** argv)
                 send_op(channel, Op::ProposalBody, body.data(), body.size());
                 break;
             }
-            case Op::Shutdown:
-                wallet.reset();
+            case Op::Shutdown: {
+                std::lock_guard lock(holder->mutex);
+                holder->wallet.reset();
                 send_op(channel, Op::Ok);
                 return 0;
+            }
             default:
                 send_err(channel, "unknown op");
             }

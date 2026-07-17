@@ -196,6 +196,7 @@ if(WIN32)
     # primitives only — no chains, no net, no UI, by construction.
     add_library(izan_keyd STATIC
         keyd/audit.cpp
+        keyd/autolock.cpp
         keyd/child.cpp
         keyd/client.cpp
         keyd/hardening.cpp
