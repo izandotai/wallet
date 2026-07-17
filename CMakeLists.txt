@@ -89,6 +89,7 @@ add_library(izan_crypto STATIC
     core/crypto/btc.cpp
     core/crypto/eth.cpp
     core/crypto/hd.cpp
+    core/crypto/sol.cpp
 )
 target_include_directories(izan_crypto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_crypto PUBLIC izan_trezor)
@@ -99,6 +100,7 @@ add_executable(izan_tests
     tests/btc_test.cpp
     tests/eth_test.cpp
     tests/hd_test.cpp
+    tests/sol_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto doctest::doctest)
 target_include_directories(izan_tests PRIVATE tests)

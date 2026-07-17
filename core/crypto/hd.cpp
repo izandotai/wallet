@@ -1,6 +1,6 @@
 #include "core/crypto/hd.hpp"
 
-#include <charconv>
+#include "core/crypto/detail/path.hpp"
 
 extern "C" {
 #include <curves.h>
@@ -15,24 +15,6 @@ namespace {
 
     constexpr uint32_t kVersionPrivate = 0x0488ade4; // xprv
     constexpr uint32_t kVersionPublic = 0x0488b21e;  // xpub
-    constexpr uint32_t kHardened = 0x80000000;
-
-    // "44'" / "0h" / "1" → child index. nullopt on anything else.
-    std::optional<uint32_t> parse_segment(std::string_view seg)
-    {
-        bool hardened = false;
-        if (seg.ends_with('\'') || seg.ends_with('h') || seg.ends_with('H')) {
-            hardened = true;
-            seg.remove_suffix(1);
-        }
-        uint32_t index = 0;
-        const auto [end, ec]
-            = std::from_chars(seg.data(), seg.data() + seg.size(), index);
-        if (ec != std::errc {} || end != seg.data() + seg.size()
-            || index >= kHardened)
-            return std::nullopt;
-        return hardened ? index | kHardened : index;
-    }
 
 }
 
@@ -49,25 +31,13 @@ std::optional<HdKey> HdKey::from_seed(std::span<const uint8_t> seed)
 std::optional<HdKey> HdKey::derive(std::string_view path) const
 {
     HdKey key = *this;
-    bool first = true;
-    while (!path.empty()) {
-        const size_t slash = path.find('/');
-        const std::string_view seg = path.substr(0, slash);
-        path.remove_prefix(
-            slash == std::string_view::npos ? path.size() : slash + 1);
-        if (first && seg == "m") {
-            first = false;
-            continue;
-        }
-        first = false;
-        const auto index = parse_segment(seg);
-        if (!index)
-            return std::nullopt;
+    const bool ok = detail::walk_path(path, [&](uint32_t index) {
         // The parent fingerprint rides along for serialization.
         key.parent_fingerprint_ = hdnode_fingerprint(&key.node_);
-        if (hdnode_private_ckd(&key.node_, *index) == 0)
-            return std::nullopt;
-    }
+        return hdnode_private_ckd(&key.node_, index) != 0;
+    });
+    if (!ok)
+        return std::nullopt;
     return key;
 }
 
