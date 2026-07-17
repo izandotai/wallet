@@ -62,16 +62,19 @@ void center_window_on_work_area(GLFWwindow* window)
         area.y + std::max(0, (area.height - h) / 2), w, h);
 }
 
-// ---- Dock ratio guardian ----
-// ImGui's native dock allocation lets the central node absorb every
-// size delta while other panes stay pixel-locked, so an outer resize
-// or a drag on one splitter skews unrelated panes. The ratio ledger is
-// the source of truth: enforced every frame, only the dragged splitter
-// learns, and a double-click rewrites that splitter to 0.5.
+// ---- Dock pane guardian ----
+// Panels keep their pixels, the content flexes: resizing or maximizing
+// the window must not scale a sidebar, exactly like every desktop
+// IDE. The ledger records the pixel size of each split's anchored pane
+// (the side NOT containing the central node); enforcement holds those
+// pixels against imgui's allocation drift, only the dragged splitter
+// learns, and a double-click resets that splitter to an even split.
 
 namespace {
 
-    std::unordered_map<unsigned int, float> g_dock_ratio; // node → ratio
+    constexpr float kMinPanePx = 60.0f;
+
+    std::unordered_map<unsigned int, float> g_dock_px; // node → anchor px
 
     bool dock_is_split(ImGuiDockNode* n)
     {
@@ -80,30 +83,44 @@ namespace {
             && n->ChildNodes[1]->IsVisible;
     }
 
-    float dock_cur_ratio(ImGuiDockNode* n)
+    bool dock_contains_central(ImGuiDockNode* n)
     {
-        ImGuiDockNode* a = n->ChildNodes[0];
-        ImGuiDockNode* b = n->ChildNodes[1];
-        const bool horiz = n->SplitAxis == ImGuiAxis_X;
-        const float sa = horiz ? a->Size.x : a->Size.y;
-        const float sb = horiz ? b->Size.x : b->Size.y;
-        const float t = sa + sb;
-        return t > 1.0f ? sa / t : 0.5f;
+        if (n == nullptr)
+            return false;
+        if ((n->MergedFlags | n->LocalFlags) & ImGuiDockNodeFlags_CentralNode)
+            return true;
+        return dock_contains_central(n->ChildNodes[0])
+            || dock_contains_central(n->ChildNodes[1]);
     }
 
-    void dock_apply_ratio(ImGuiDockNode* n, float r)
+    // The anchored pane: the child that does not lead to the central
+    // node. Inside a fully fixed subtree neither does; child 0 anchors
+    // by convention.
+    int dock_anchor_index(ImGuiDockNode* n)
     {
-        ImGuiDockNode* a = n->ChildNodes[0];
-        ImGuiDockNode* b = n->ChildNodes[1];
-        if (n->SplitAxis == ImGuiAxis_X) {
-            const float t = a->Size.x + b->Size.x;
-            a->Size.x = a->SizeRef.x = t * r;
-            b->Size.x = b->SizeRef.x = t - a->Size.x;
-        } else {
-            const float t = a->Size.y + b->Size.y;
-            a->Size.y = a->SizeRef.y = t * r;
-            b->Size.y = b->SizeRef.y = t - a->Size.y;
-        }
+        return dock_contains_central(n->ChildNodes[0]) ? 1 : 0;
+    }
+
+    float dock_clamp_px(float px, float total)
+    {
+        return ImClamp(px, kMinPanePx, ImMax(total - kMinPanePx, kMinPanePx));
+    }
+
+    float dock_cur_px(ImGuiDockNode* n)
+    {
+        const int axis = int(n->SplitAxis);
+        return (&n->ChildNodes[dock_anchor_index(n)]->Size.x)[axis];
+    }
+
+    void dock_apply_px(ImGuiDockNode* n, float px)
+    {
+        ImGuiDockNode* anchor = n->ChildNodes[dock_anchor_index(n)];
+        ImGuiDockNode* flex = n->ChildNodes[1 - dock_anchor_index(n)];
+        const int axis = int(n->SplitAxis);
+        const float total = (&anchor->Size.x)[axis] + (&flex->Size.x)[axis];
+        px = dock_clamp_px(px, total);
+        (&anchor->Size.x)[axis] = (&anchor->SizeRef.x)[axis] = px;
+        (&flex->Size.x)[axis] = (&flex->SizeRef.x)[axis] = total - px;
     }
 
     // The node owning the seam under the mouse (±8px band); shared by
@@ -140,15 +157,19 @@ namespace {
     // whole subtree was tried and reverted: with the guardian active no
     // drag can skew other splitters anymore, and the collateral reset
     // clobbered panes the user had deliberately collapsed.
-    void dock_set_ratio_one(ImGuiDockNode* n, float r)
+    void dock_reset_even(ImGuiDockNode* n)
     {
-        if (n != nullptr && dock_is_split(n))
-            g_dock_ratio[n->ID] = r;
+        if (n == nullptr || !dock_is_split(n))
+            return;
+        const int axis = int(n->SplitAxis);
+        const float total = (&n->ChildNodes[0]->Size.x)[axis]
+            + (&n->ChildNodes[1]->Size.x)[axis];
+        g_dock_px[n->ID] = total / 2.0f;
     }
 
-    // Rewrites SizeRef through the tree for a given node size, using
-    // the ledger where it has an entry and the current ratio where it
-    // does not.
+    // Rewrites SizeRef through the tree for a given node size: the
+    // anchored pane keeps its ledger pixels, the flexing side takes
+    // the rest.
     void dock_prepass_apply(ImGuiDockNode* n, ImVec2 avail)
     {
         if (n == nullptr)
@@ -158,25 +179,25 @@ namespace {
             dock_prepass_apply(n->ChildNodes[1], avail);
             return;
         }
-        ImGuiDockNode* a = n->ChildNodes[0];
-        ImGuiDockNode* b = n->ChildNodes[1];
+        const int anchorAt = dock_anchor_index(n);
+        ImGuiDockNode* anchor = n->ChildNodes[anchorAt];
+        ImGuiDockNode* flex = n->ChildNodes[1 - anchorAt];
         const int axis = int(n->SplitAxis);
-        const auto it = g_dock_ratio.find(n->ID);
-        const float r
-            = it != g_dock_ratio.end() ? it->second : dock_cur_ratio(n);
         const float spacing = ImGui::GetStyle().DockingSeparatorSize;
         const float total = ImMax((&avail.x)[axis] - spacing, 0.0f);
-        const float sa = ImTrunc(total * r);
-        (&a->SizeRef.x)[axis] = sa;
-        (&b->SizeRef.x)[axis] = total - sa;
-        ImVec2 availA = avail, availB = avail;
-        (&availA.x)[axis] = sa;
-        (&availB.x)[axis] = total - sa;
-        dock_prepass_apply(a, availA);
-        dock_prepass_apply(b, availB);
+        const auto it = g_dock_px.find(n->ID);
+        const float px = dock_clamp_px(
+            it != g_dock_px.end() ? it->second : dock_cur_px(n), total);
+        (&anchor->SizeRef.x)[axis] = px;
+        (&flex->SizeRef.x)[axis] = total - px;
+        ImVec2 availAnchor = avail, availFlex = avail;
+        (&availAnchor.x)[axis] = px;
+        (&availFlex.x)[axis] = total - px;
+        dock_prepass_apply(anchor, availAnchor);
+        dock_prepass_apply(flex, availFlex);
     }
 
-    // Ratios staged by import, waiting for their split nodes to
+    // Pane sizes staged by import, waiting for their split nodes to
     // materialize; indexed by depth-first split order.
     std::vector<float> g_dock_pending;
 
@@ -190,29 +211,32 @@ namespace {
     }
 
     // First meeting with a split the session holds no opinion on:
-    // install the imported ratio for its depth-first position, falling
-    // back to the ratio the ini restored into SizeRef. Without this an
-    // unseeded ledger learns whatever imgui's restore produced —
-    // mangled sizes or the 0.5 fallback: the "sidebars snap back to
-    // half on every launch" bug. Nothing here overwrites what a drag
-    // has already taught this session.
+    // install the imported pane size for its depth-first position,
+    // falling back to the pixels the ini restored into SizeRef.
+    // Without this an unseeded ledger learns whatever imgui's restore
+    // produced: the "sidebars snap back to half on every launch" bug.
+    // Values below 1.0 are ratios from the retired scheme and convert
+    // against the restored total once. Nothing here overwrites what a
+    // drag has already taught this session.
     void dock_seed_ledger(ImGuiDockNode* n, std::size_t& k)
     {
         if (n == nullptr)
             return;
         if (dock_is_split_structural(n)) {
-            if (!g_dock_ratio.contains(n->ID)) {
-                const float pending
+            if (!g_dock_px.contains(n->ID)) {
+                const int axis = int(n->SplitAxis);
+                const float sa
+                    = (&n->ChildNodes[dock_anchor_index(n)]->SizeRef.x)[axis];
+                const float sb = (&n->ChildNodes[1 - dock_anchor_index(n)]
+                        ->SizeRef.x)[axis];
+                float pending
                     = k < g_dock_pending.size() ? g_dock_pending[k] : 0.0f;
-                if (pending > 0.02f && pending < 0.98f) {
-                    g_dock_ratio.emplace(n->ID, pending);
-                } else {
-                    const int axis = int(n->SplitAxis);
-                    const float sa = (&n->ChildNodes[0]->SizeRef.x)[axis];
-                    const float sb = (&n->ChildNodes[1]->SizeRef.x)[axis];
-                    if (sa + sb > 1.0f)
-                        g_dock_ratio.emplace(n->ID, sa / (sa + sb));
-                }
+                if (pending > 0.02f && pending < 1.0f)
+                    pending *= sa + sb; // legacy ratio wire form
+                if (pending >= kMinPanePx)
+                    g_dock_px.emplace(n->ID, pending);
+                else if (sa >= 1.0f)
+                    g_dock_px.emplace(n->ID, sa);
             }
             ++k;
         }
@@ -220,17 +244,16 @@ namespace {
         dock_seed_ledger(n->ChildNodes[1], k);
     }
 
-    void dock_collect_ratios(ImGuiDockNode* n, std::vector<float>& out)
+    void dock_collect_panes(ImGuiDockNode* n, std::vector<float>& out)
     {
         if (n == nullptr)
             return;
         if (dock_is_split_structural(n)) {
-            const auto it = g_dock_ratio.find(n->ID);
-            out.push_back(
-                it != g_dock_ratio.end() ? it->second : dock_cur_ratio(n));
+            const auto it = g_dock_px.find(n->ID);
+            out.push_back(it != g_dock_px.end() ? it->second : dock_cur_px(n));
         }
-        dock_collect_ratios(n->ChildNodes[0], out);
-        dock_collect_ratios(n->ChildNodes[1], out);
+        dock_collect_panes(n->ChildNodes[0], out);
+        dock_collect_panes(n->ChildNodes[1], out);
     }
 
     void dock_walk_keep(ImGuiDockNode* n, ImGuiDockNode* learning)
@@ -238,12 +261,12 @@ namespace {
         if (n == nullptr)
             return;
         if (dock_is_split(n)) {
-            const float cur = dock_cur_ratio(n);
-            auto it = g_dock_ratio.find(n->ID);
-            if (n == learning || it == g_dock_ratio.end()) {
-                g_dock_ratio[n->ID] = cur;       // dragged or first seen: learn
-            } else if (cur < it->second - 0.002f || cur > it->second + 0.002f) {
-                dock_apply_ratio(n, it->second); // others: hold the ledger
+            const float cur = dock_cur_px(n);
+            auto it = g_dock_px.find(n->ID);
+            if (n == learning || it == g_dock_px.end()) {
+                g_dock_px[n->ID] = cur;       // dragged or first seen: learn
+            } else if (cur < it->second - 0.5f || cur > it->second + 0.5f) {
+                dock_apply_px(n, it->second); // others: hold the ledger
             }
         }
         dock_walk_keep(n->ChildNodes[0], learning);
@@ -252,20 +275,20 @@ namespace {
 
 }
 
-std::vector<float> dock_ratio_ledger_export(unsigned int dockspace_id)
+std::vector<float> dock_ledger_export(unsigned int dockspace_id)
 {
     std::vector<float> out;
-    dock_collect_ratios(
+    dock_collect_panes(
         ImGui::DockBuilderGetNode(static_cast<ImGuiID>(dockspace_id)), out);
     return out;
 }
 
-void dock_ratio_ledger_import(const std::vector<float>& ratios)
+void dock_ledger_import(const std::vector<float>& panes)
 {
-    g_dock_pending = ratios;
+    g_dock_pending = panes;
 }
 
-void dock_ratio_guard_prepass(unsigned int dockspace_id, const ImVec2& size)
+void dock_guard_prepass(unsigned int dockspace_id, const ImVec2& size)
 {
     ImGuiDockNode* root
         = ImGui::DockBuilderGetNode(static_cast<ImGuiID>(dockspace_id));
@@ -293,7 +316,7 @@ void dock_splitter_dblclick_reset(unsigned int dockspace_id)
     ImGuiDockNode* seam = on_splitter ? dock_seam_hit(root, mouse) : nullptr;
     if (on_splitter && seam != nullptr
         && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-        dock_set_ratio_one(seam, 0.5f);
+        dock_reset_even(seam);
         ImGui::ClearActiveID();
         seam = nullptr; // enforce the fresh ledger this same frame
         ImGui::MarkIniSettingsDirty();
@@ -330,7 +353,7 @@ void LayoutKeeper::restore(GLFWwindow* window, const LayoutState& state)
     if (!m_state.layout.empty())
         ImGui::LoadIniSettingsFromMemory(
             m_state.layout.data(), m_state.layout.size());
-    dock_ratio_ledger_import(m_state.dock_ratios);
+    dock_ledger_import(m_state.dock_panes);
 
     // Size through the raw-rect call: glfw's decoration math no longer
     // matches the borderless chrome and would grow the frame a border's
@@ -357,7 +380,7 @@ void LayoutKeeper::update(GLFWwindow* window, unsigned int dockspace_id,
     if (ImGui::GetIO().WantSaveIniSettings) {
         ImGui::GetIO().WantSaveIniSettings = false;
         m_state.layout = ImGui::SaveIniSettingsToMemory();
-        m_state.dock_ratios = dock_ratio_ledger_export(dockspace_id);
+        m_state.dock_panes = dock_ledger_export(dockspace_id);
         want_save = true;
     }
 
@@ -392,7 +415,7 @@ void LayoutKeeper::update(GLFWwindow* window, unsigned int dockspace_id,
 const LayoutState& LayoutKeeper::final_state()
 {
     m_state.layout = ImGui::SaveIniSettingsToMemory();
-    m_state.dock_ratios = dock_ratio_ledger_export(m_dockspace);
+    m_state.dock_panes = dock_ledger_export(m_dockspace);
     return m_state;
 }
 

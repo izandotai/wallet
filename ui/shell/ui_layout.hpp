@@ -31,12 +31,13 @@ void snap_window_to_work_area(GLFWwindow* window, float x_fraction,
 // not-yet-collapsed non-client area drags the window upward.
 void center_window_on_work_area(GLFWwindow* window);
 
-// ---- Dock splitter ratio guardian ----
-// ImGui's native dock allocation lets the central node absorb every
-// size delta while other panes stay pixel-locked, so an outer resize
-// or a drag on one splitter skews unrelated panes. The ratio ledger is
-// the source of truth: enforced every frame, only the dragged splitter
-// learns, and a double-click rewrites that splitter to 0.5.
+// ---- Dock pane guardian ----
+// Panels keep their pixels, the content flexes: resizing or maximizing
+// the window must not scale a sidebar, exactly like every desktop IDE.
+// The ledger records the pixel size of each split's anchored pane (the
+// side not containing the central node); enforcement holds those
+// pixels, only the dragged splitter learns, and a double-click resets
+// that splitter to an even split.
 
 // Call right AFTER DockSpace(): holds the ledger against native
 // allocation drift, learns from an in-flight splitter drag, resets the
@@ -44,25 +45,24 @@ void center_window_on_work_area(GLFWwindow* window);
 void dock_splitter_dblclick_reset(unsigned int dockspace_id);
 
 // Call right BEFORE DockSpace() with the size the dockspace is about
-// to get. The post-pass above corrects ratios one frame late — during
-// a caption-drag restore the modal move loop renders exactly one frame
+// to get. The post-pass above corrects sizes one frame late — during a
+// caption-drag restore the modal move loop renders exactly one frame
 // at the new size and then nothing until release, so that one frame
 // must already be right. When the host size is about to change, this
-// rewrites the tree's SizeRef to the ledger ratios at the new size so
+// rewrites the tree's SizeRef to the ledger sizes at the new total so
 // the same frame lays out correctly. Splitter drags never change the
 // host size, so this stays silent and cannot fight them.
-void dock_ratio_guard_prepass(unsigned int dockspace_id, const ImVec2& size);
+void dock_guard_prepass(unsigned int dockspace_id, const ImVec2& size);
 
 // The ledger is session memory; these let the host persist it across
-// runs. The wire form is positional — splitter ratios in depth-first
-// order over the dockspace's split nodes — because nothing else is
-// stable: node ids get renumbered between the live tree and the saved
-// ini, and SizeRef is overwritten with already-mangled sizes by
-// imgui's lock-size-once paths before the first prepass can read it.
-// Imported ratios are staged and installed as each split materializes;
-// values outside (0.02, 0.98) are ignored there.
-std::vector<float> dock_ratio_ledger_export(unsigned int dockspace_id);
-void dock_ratio_ledger_import(const std::vector<float>& ratios);
+// runs. The wire form is positional — anchored-pane pixel sizes in
+// depth-first order over the dockspace's split nodes — because node
+// ids are not stable: they get renumbered between the live tree and
+// the saved ini. Imported sizes are staged and installed as each split
+// materializes; values below 1.0 are read as ratios from the retired
+// wire form and converted once.
+std::vector<float> dock_ledger_export(unsigned int dockspace_id);
+void dock_ledger_import(const std::vector<float>& panes);
 
 // ---- Persistence ----
 
@@ -78,12 +78,11 @@ struct LayoutState {
     int window_h = 0;
     bool window_maximized = false;
     // imgui's window/dock layout (SaveIniSettingsToMemory text), plus
-    // the splitter ratios in depth-first split order — the ini's
-    // SizeRef pixels are absolute and imgui mangles them when the
-    // startup window differs from the saved one, so the ratios ride
-    // separately and win.
+    // the anchored-pane pixel sizes in depth-first split order — imgui
+    // mangles its own restore when the startup window differs from the
+    // saved one, so the pane sizes ride separately and win.
     std::string layout;
-    std::vector<float> dock_ratios;
+    std::vector<float> dock_panes;
 };
 
 // Restores a saved LayoutState after GlfwApp::init and watches for

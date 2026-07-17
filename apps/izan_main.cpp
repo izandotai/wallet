@@ -45,13 +45,13 @@ struct Settings {
     int window_h = 0;
     bool window_maximized = false;
     std::string layout;
-    std::vector<float> dock_ratios;
+    std::vector<float> dock_panes;
 };
 
 ui::LayoutState layout_state_of(const Settings& s)
 {
     return { s.window_w, s.window_h, s.window_maximized, s.layout,
-        s.dock_ratios };
+        s.dock_panes };
 }
 
 void merge_layout_state(const ui::LayoutState& u, Settings& s)
@@ -60,7 +60,7 @@ void merge_layout_state(const ui::LayoutState& u, Settings& s)
     s.window_h = u.window_h;
     s.window_maximized = u.window_maximized;
     s.layout = u.layout;
-    s.dock_ratios = u.dock_ratios;
+    s.dock_panes = u.dock_panes;
 }
 
 // Every piece of mutable state — vault, audit ledger, settings — lives
@@ -255,7 +255,7 @@ int main(int argc, char** argv)
                 | ImGuiWindowFlags_NoBringToFrontOnFocus
                 | ImGuiWindowFlags_NoSavedSettings);
         const ImGuiID dockspace = ImGui::GetID("izan-dockspace");
-        ui::dock_ratio_guard_prepass(dockspace, ImGui::GetContentRegionAvail());
+        ui::dock_guard_prepass(dockspace, ImGui::GetContentRegionAvail());
         ImGui::DockSpace(
             dockspace, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
         ui::dock_splitter_dblclick_reset(dockspace);
