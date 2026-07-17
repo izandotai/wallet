@@ -1,6 +1,10 @@
 #include <doctest/doctest.h>
 
+#include <cstring>
 #include <string>
+#include <string_view>
+
+#include <sodium.h>
 
 #include "core/crypto/bip39.hpp"
 
@@ -46,4 +50,36 @@ TEST_CASE("BIP-39 rejects words outside the list")
     CHECK(!izan::crypto::mnemonic_valid(
         "zebra zebra zebra zebra zebra zebra zebra zebra zebra zebra zebra "
         "xyzzy"));
+}
+
+TEST_CASE("bip39: entropy and mnemonic round-trip both directions")
+{
+    using izan::secure::SecureBytes;
+
+    // Official vector: 16 zero bytes. (Guarded allocations arrive
+    // deliberately filled with junk — zero explicitly.)
+    SecureBytes zeros(16);
+    sodium_memzero(zeros.data(), zeros.size());
+    SecureBytes sentence = izan::crypto::entropy_to_mnemonic(zeros);
+    CHECK(std::string_view(reinterpret_cast<const char*>(sentence.data()))
+        == "abandon abandon abandon abandon abandon abandon abandon abandon "
+           "abandon abandon abandon about");
+
+    SecureBytes back = izan::crypto::mnemonic_to_entropy(
+        reinterpret_cast<const char*>(sentence.data()));
+    REQUIRE(back.size() == 16);
+    CHECK(std::memcmp(back.data(), zeros.data(), 16) == 0);
+
+    // Random 32-byte entropy survives the round trip.
+    SecureBytes random32(32);
+    randombytes_buf(random32.data(), random32.size());
+    SecureBytes words = izan::crypto::entropy_to_mnemonic(random32);
+    SecureBytes again = izan::crypto::mnemonic_to_entropy(
+        reinterpret_cast<const char*>(words.data()));
+    REQUIRE(again.size() == 32);
+    CHECK(std::memcmp(again.data(), random32.data(), 32) == 0);
+
+    CHECK_THROWS(izan::crypto::mnemonic_to_entropy("not a mnemonic at all"));
+    SecureBytes bad(15);
+    CHECK_THROWS(izan::crypto::entropy_to_mnemonic(bad));
 }

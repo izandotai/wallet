@@ -170,7 +170,7 @@ add_library(izan_crypto STATIC
     core/crypto/sol.cpp
 )
 target_include_directories(izan_crypto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(izan_crypto PUBLIC izan_trezor)
+target_link_libraries(izan_crypto PUBLIC izan_trezor izan_secure)
 
 # ABI words and selectors for contract reads (keccak from trezor).
 add_library(izan_codec STATIC
