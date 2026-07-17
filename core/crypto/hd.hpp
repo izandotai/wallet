@@ -18,6 +18,16 @@ extern "C" {
 
 namespace izan::crypto {
 
+// Recoverable secp256k1 signature over a 32-byte digest: deterministic
+// nonce (RFC 6979), canonical low s. y_parity selects which of the two
+// candidate public keys recovery yields — exactly the (v, r, s) an
+// EIP-1559 transaction carries.
+struct EcdsaSignature {
+    std::array<uint8_t, 32> r {};
+    std::array<uint8_t, 32> s {};
+    uint8_t y_parity = 0;
+};
+
 // BIP-32 hierarchical deterministic key on secp256k1. Holds private key
 // material; every instance wipes itself on destruction.
 class HdKey {
@@ -39,6 +49,12 @@ public:
 
     // Compressed secp256k1 public key, 33 bytes.
     std::array<uint8_t, 33> public_key_compressed() const;
+
+    // Signs a 32-byte digest with this key. The private key never
+    // leaves the class; this is the only way key material meets a
+    // hash. nullopt only on an upstream signing failure.
+    std::optional<EcdsaSignature> sign_digest(
+        std::span<const uint8_t, 32> digest) const;
 
     ~HdKey();
     HdKey(const HdKey&) = default;

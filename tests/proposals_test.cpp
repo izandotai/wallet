@@ -5,6 +5,8 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -13,11 +15,20 @@
 #include <sodium.h>
 #include <windows.h>
 
+extern "C" {
+#include <ecdsa.h>
+#include <secp256k1.h>
+#include <sha3.h>
+}
+
+#include "core/crypto/bip39.hpp"
+#include "core/crypto/eth.hpp"
 #include "core/secure/vault.hpp"
 #include "keyd/audit.hpp"
 #include "keyd/client.hpp"
 #include "keyd/proposals.hpp"
 #include "keyd/protocol.hpp"
+#include "keyd/signer.hpp"
 #include "platform/ipc/named_pipe.hpp"
 
 using izan::secure::SecureBytes;
@@ -25,11 +36,31 @@ using namespace izan::keyd;
 
 namespace {
 
+// Hardhat/Anvil development mnemonic; its account #0 is the most
+// widely cross-checked address in the EVM ecosystem — an external
+// anchor for "the signature came from the vault's seed".
+const char* kDevMnemonic
+    = "test test test test test test test test test test test junk";
+const char* kDevAccount0 = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+
 SecureBytes sb_from(std::string_view text)
 {
     SecureBytes out(text.size());
     std::memcpy(out.data(), text.data(), text.size());
     return out;
+}
+
+std::string recovered_signer(
+    const ApprovedSignature& sig, const uint8_t digest[32])
+{
+    uint8_t rs[64];
+    std::memcpy(rs, sig.r.data(), 32);
+    std::memcpy(rs + 32, sig.s.data(), 32);
+    uint8_t pub[65];
+    REQUIRE(
+        ecdsa_recover_pub_from_sig(&secp256k1, pub, rs, digest, sig.y_parity)
+        == 0);
+    return izan::crypto::eth_address(std::span<const uint8_t, 65>(pub, 65));
 }
 
 std::string self_exe()
@@ -48,8 +79,7 @@ std::string make_test_vault(const char* pass)
 {
     const std::string path = temp_file("proposals_test.qvlt");
     izan::vault::Wallet wallet;
-    wallet.entropy = SecureBytes(16);
-    randombytes_buf(wallet.entropy.data(), wallet.entropy.size());
+    wallet.entropy = izan::crypto::mnemonic_to_entropy(kDevMnemonic);
     izan::vault::save(path, sb_from(pass), wallet, izan::vault::kdf_min());
     return path;
 }
@@ -228,7 +258,13 @@ TEST_CASE("keyd proposals: submission, provenance, passphrase-gated verdicts")
     CHECK(keyd.last_error() == "bad passphrase");
     CHECK(query_state(pipe, anonId) == ProposalState::Pending);
 
-    CHECK(keyd.approve(anonId, sb_from("correct horse")));
+    // Approval IS the signature. Recover it to prove which key spoke:
+    // the vault seed's account #0, over exactly the queue's bytes.
+    uint8_t digest[32];
+    keccak_256(payload.data(), payload.size(), digest);
+    auto sig = keyd.approve(anonId, sb_from("correct horse"));
+    REQUIRE(sig);
+    CHECK(recovered_signer(*sig, digest) == kDevAccount0);
     CHECK(query_state(pipe, anonId) == ProposalState::Approved);
     CHECK(!keyd.approve(anonId, sb_from("correct horse"))); // final
     CHECK(keyd.last_error() == "unknown proposal");
@@ -246,6 +282,20 @@ TEST_CASE("keyd proposals: submission, provenance, passphrase-gated verdicts")
     // line: two submits, one forged-MAC alarm, one bad passphrase, one
     // approval, one denial.
     CHECK(AuditLog::verify(auditPath) == 6);
+
+    // The approval record commits to what was signed and by whom —
+    // the countable leg of the sign ≡ approve ≡ audit identity.
+    {
+        std::ifstream lf(auditPath, std::ios::binary);
+        std::stringstream ls;
+        ls << lf.rdbuf();
+        char digestHex[65];
+        sodium_bin2hex(digestHex, sizeof digestHex, digest, sizeof digest);
+        CHECK(ls.str().find(std::string("digest=") + digestHex)
+            != std::string::npos);
+        CHECK(ls.str().find(std::string("signer=") + kDevAccount0)
+            != std::string::npos);
+    }
     std::fstream f(auditPath, std::ios::in | std::ios::out | std::ios::binary);
     f.seekp(70);
     f.put('X');
@@ -255,6 +305,56 @@ TEST_CASE("keyd proposals: submission, provenance, passphrase-gated verdicts")
     std::filesystem::remove(auditPath);
     std::filesystem::remove(vaultPath);
     std::filesystem::remove(vaultPath + ".bak");
+}
+
+TEST_CASE("signer: seed to signature, straight through")
+{
+    const SecureBytes entropy = izan::crypto::mnemonic_to_entropy(kDevMnemonic);
+    const std::vector<uint8_t> payload { 0x02, 0xc0, 0xff, 0xee };
+
+    const SignedDigest out = sign_payload(entropy, payload);
+    CHECK(out.signer == kDevAccount0);
+
+    uint8_t digest[32];
+    keccak_256(payload.data(), payload.size(), digest);
+    CHECK(std::memcmp(out.digest.data(), digest, 32) == 0);
+
+    ApprovedSignature wire;
+    wire.y_parity = out.sig.y_parity;
+    wire.r = out.sig.r;
+    wire.s = out.sig.s;
+    CHECK(recovered_signer(wire, digest) == kDevAccount0);
+
+    CHECK_THROWS_AS(
+        sign_payload(entropy, std::vector<uint8_t> {}), std::invalid_argument);
+    CHECK_THROWS_AS(
+        sign_payload(SecureBytes(), payload), std::invalid_argument);
+}
+
+TEST_CASE("keyd proposals: a seedless vault approves nothing")
+{
+    // A vault holding only imported keys has no seed to derive from;
+    // approval must refuse — and crucially leave the proposal pending,
+    // not half-approved with no signature to show for it.
+    const std::string vaultPath = temp_file("proposals_seedless.qvlt");
+    izan::vault::Wallet wallet;
+    izan::vault::save(
+        vaultPath, sb_from("correct horse"), wallet, izan::vault::kdf_min());
+
+    KeydClient keyd = KeydClient::spawn(self_exe(), vaultPath);
+    auto id = keyd.submit_ui({ 't', 'x' });
+    REQUIRE(id);
+    CHECK(!keyd.approve(*id, sb_from("correct horse")));
+    CHECK(keyd.last_error() == "signer: vault holds no seed");
+    CHECK(query_state(keyd.pipe_name(), *id) == ProposalState::Pending);
+
+    CHECK(keyd.shutdown());
+    auto exit = keyd.wait_exit(5000);
+    REQUIRE(exit);
+    CHECK(*exit == 0);
+
+    std::filesystem::remove(vaultPath);
+    std::filesystem::remove(vaultPath + ".audit");
 }
 
 #endif

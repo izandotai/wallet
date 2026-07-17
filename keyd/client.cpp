@@ -183,7 +183,8 @@ std::optional<std::pair<Provenance, std::vector<uint8_t>>> KeydClient::fetch(
         std::vector<uint8_t>(reply->data() + 2, reply->data() + reply->size()));
 }
 
-bool KeydClient::approve(uint64_t id, const SecureBytes& passphrase)
+std::optional<ApprovedSignature> KeydClient::approve(
+    uint64_t id, const SecureBytes& passphrase)
 {
     std::vector<uint8_t> frame(9 + passphrase.size());
     frame[0] = uint8_t(Op::Approve);
@@ -194,13 +195,19 @@ bool KeydClient::approve(uint64_t id, const SecureBytes& passphrase)
     sodium_memzero(frame.data(), frame.size());
     if (!reply || reply->empty()) {
         m_last_error = "channel broken";
-        return false;
+        return std::nullopt;
     }
-    if (reply->data()[0] == uint8_t(Op::Ok))
-        return true;
-    m_last_error.assign(
-        reinterpret_cast<const char*>(reply->data()) + 1, reply->size() - 1);
-    return false;
+    if (reply->data()[0] != uint8_t(Op::Signed)
+        || reply->size() != 1 + kSignedBodyBytes) {
+        m_last_error.assign(reinterpret_cast<const char*>(reply->data()) + 1,
+            reply->size() - 1);
+        return std::nullopt;
+    }
+    ApprovedSignature sig;
+    sig.y_parity = reply->data()[1];
+    std::memcpy(sig.r.data(), reply->data() + 2, 32);
+    std::memcpy(sig.s.data(), reply->data() + 34, 32);
+    return sig;
 }
 
 std::optional<SecureBytes> KeydClient::reveal(const SecureBytes& passphrase)

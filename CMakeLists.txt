@@ -201,9 +201,11 @@ if(WIN32)
         keyd/child.cpp
         keyd/client.cpp
         keyd/hardening.cpp
+        keyd/signer.cpp
     )
     target_include_directories(izan_keyd PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_link_libraries(izan_keyd PUBLIC izan_ipc izan_secure)
+    target_link_libraries(izan_keyd PUBLIC izan_ipc izan_secure
+        PRIVATE izan_crypto)
 endif()
 
 # L1 platform: HTTPS transport. TLS trust anchors come from the OS

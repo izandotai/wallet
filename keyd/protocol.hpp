@@ -17,6 +17,9 @@ enum class Op : uint8_t {
     // Approval re-presents the passphrase (§3.1 gap one): a click
     // inside a compromised UI must not be enough to move money, so the
     // human proves presence with the one secret the UI never stores.
+    // Approval and signing are one atomic act — the reply is Signed,
+    // over the queue's own copy of the payload, so a compromised UI
+    // can neither approve without signing nor swap in different bytes.
     Approve = 0x05, // body: u64-LE proposal id, then passphrase bytes
     Deny = 0x06,    // body: u64-LE proposal id
     Pending = 0x07, // body: empty
@@ -34,7 +37,10 @@ enum class Op : uint8_t {
     PendingList = 0x44, // body: repeated { u64-LE id, u8 provenance }
     ProposalBody = 0x45, // body: u8 provenance, then payload bytes
     Entropy = 0x46,      // body: BIP-39 entropy bytes (16/32)
+    Signed = 0x47,       // body: y_parity(1) || r(32) || s(32)
 };
+
+inline constexpr std::size_t kSignedBodyBytes = 65;
 
 // Wrong-passphrase throttle: once this many verifications fail in a
 // row, every further attempt stalls (seconds growing with the streak,

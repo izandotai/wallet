@@ -1,5 +1,7 @@
 #include "core/crypto/hd.hpp"
 
+#include <algorithm>
+
 #include "core/crypto/detail/path.hpp"
 
 extern "C" {
@@ -75,6 +77,23 @@ std::array<uint8_t, 33> HdKey::public_key_compressed() const
 {
     std::array<uint8_t, 33> out {};
     ecdsa_get_public_key33(&secp256k1, node_.private_key, out.data());
+    return out;
+}
+
+std::optional<EcdsaSignature> HdKey::sign_digest(
+    std::span<const uint8_t, 32> digest) const
+{
+    uint8_t sig[64];
+    uint8_t parity = 0;
+    if (ecdsa_sign_digest(
+            &secp256k1, node_.private_key, digest.data(), sig, &parity, nullptr)
+        != 0)
+        return std::nullopt;
+    EcdsaSignature out;
+    std::copy(sig, sig + 32, out.r.begin());
+    std::copy(sig + 32, sig + 64, out.s.begin());
+    out.y_parity = parity;
+    memzero(sig, sizeof sig);
     return out;
 }
 

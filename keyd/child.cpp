@@ -21,6 +21,7 @@
 #include "keyd/hardening.hpp"
 #include "keyd/proposals.hpp"
 #include "keyd/protocol.hpp"
+#include "keyd/signer.hpp"
 #include "platform/ipc/named_pipe.hpp"
 #include "platform/ipc/secret_channel.hpp"
 
@@ -297,7 +298,10 @@ int child_main(int argc, char** argv)
             case Op::Approve: {
                 // §3.1 gap one: approving spends the passphrase, not a
                 // click. Verify the human first, only then touch the
-                // proposal's state.
+                // proposal's state. Approval and signing are one act,
+                // over the queue's own bytes: what the human saw at
+                // Fetch is what gets signed, whatever the UI became in
+                // between.
                 if (frame->size() < 1 + 8) {
                     send_err(channel, "short frame");
                     break;
@@ -307,8 +311,9 @@ int child_main(int argc, char** argv)
                 SecureBytes pass(frame->size() - 9);
                 if (!pass.empty())
                     std::memcpy(pass.data(), frame->data() + 9, pass.size());
+                std::optional<vault::Wallet> opened;
                 try {
-                    vault::open(vaultPath, pass);
+                    opened = vault::open(vaultPath, pass);
                     badPass = 0;
                 } catch (const std::exception&) {
                     ++badPass;
@@ -317,13 +322,37 @@ int child_main(int argc, char** argv)
                     send_err(channel, "bad passphrase");
                     break;
                 }
-                if (!plane->queue.resolve(id, ProposalState::Approved)) {
+                const std::optional<Proposal> p = plane->queue.get(id);
+                if (!p || p->state != ProposalState::Pending) {
                     send_err(channel, "unknown proposal");
                     break;
                 }
-                plane->audit.append(
-                    "proposal.approve id=" + std::to_string(id));
-                send_op(channel, Op::Ok);
+                SignedDigest signature;
+                try {
+                    signature = sign_payload(opened->entropy, p->payload);
+                } catch (const std::exception& e) {
+                    plane->audit.append(
+                        "proposal.sign.fail id=" + std::to_string(id));
+                    send_err(channel, e.what());
+                    break;
+                }
+                opened.reset();
+                // Single-threaded verdicts: the resolve cannot lose a
+                // race, so a signature never outlives a still-pending
+                // state.
+                plane->queue.resolve(id, ProposalState::Approved);
+                char digestHex[65];
+                sodium_bin2hex(digestHex, sizeof digestHex,
+                    signature.digest.data(), signature.digest.size());
+                // One record per signature — the countable third leg of
+                // the sign ≡ approve ≡ audit identity.
+                plane->audit.append("proposal.approve id=" + std::to_string(id)
+                    + " digest=" + digestHex + " signer=" + signature.signer);
+                uint8_t body[kSignedBodyBytes];
+                body[0] = signature.sig.y_parity;
+                std::memcpy(body + 1, signature.sig.r.data(), 32);
+                std::memcpy(body + 33, signature.sig.s.data(), 32);
+                send_op(channel, Op::Signed, body, sizeof body);
                 break;
             }
             case Op::Deny: {

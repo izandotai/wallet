@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -22,6 +23,13 @@ struct HelloInfo {
 struct PendingItem {
     uint64_t id = 0;
     Provenance provenance = Provenance::Anonymous;
+};
+
+// The Signed reply, unpacked: ready for eip1559::encode_signed.
+struct ApprovedSignature {
+    uint8_t y_parity = 0;
+    std::array<uint8_t, 32> r {};
+    std::array<uint8_t, 32> s {};
 };
 
 // UI-side handle to a spawned keyd. Owns the process and the password
@@ -62,11 +70,14 @@ public:
 
     // Password-channel proposal management. Approval re-presents the
     // passphrase (§3.1 gap one) — there is deliberately no overload
-    // without one.
+    // without one — and a successful approval IS the signature over
+    // the proposal's payload; nullopt carries the refusal in
+    // last_error().
     std::optional<std::vector<PendingItem>> pending();
     std::optional<std::pair<Provenance, std::vector<uint8_t>>> fetch(
         uint64_t id);
-    bool approve(uint64_t id, const secure::SecureBytes& passphrase);
+    std::optional<ApprovedSignature> approve(
+        uint64_t id, const secure::SecureBytes& passphrase);
     bool deny(uint64_t id);
     // Backup: re-presents the passphrase, returns the BIP-39 entropy in
     // guarded memory. nullopt carries the refusal in last_error().
