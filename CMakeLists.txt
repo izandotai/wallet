@@ -233,6 +233,14 @@ target_include_directories(izan_domain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_domain PUBLIC izan_units
     PRIVATE glaze::glaze izan_codec izan_crypto izan_platform)
 
+# UI string catalogs. Headless on purpose: pages read it, tests audit
+# it, neither needs a window.
+add_library(izan_i18n STATIC
+    ui/i18n/catalog.cpp
+)
+target_include_directories(izan_i18n PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(izan_i18n PRIVATE glaze::glaze)
+
 # Watch-only CLI: paste an address, see the assets.
 add_executable(izan_watch apps/watch_main.cpp)
 target_link_libraries(izan_watch PRIVATE izan_domain izan_units)
@@ -288,12 +296,13 @@ add_executable(izan_tests
     tests/assets_test.cpp
     tests/portfolio_test.cpp
     tests/config_trust_test.cpp
+    tests/i18n_test.cpp
     tests/keyd_test.cpp
     tests/linkbits_test.cpp
     tests/proposals_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
-    izan_codec izan_domain izan_platform doctest::doctest)
+    izan_codec izan_domain izan_i18n izan_platform doctest::doctest)
 if(WIN32)
     target_link_libraries(izan_tests PRIVATE izan_keyd)
 endif()
