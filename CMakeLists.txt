@@ -237,6 +237,15 @@ target_link_libraries(izan_domain PUBLIC izan_units
 add_executable(izan_watch apps/watch_main.cpp)
 target_link_libraries(izan_watch PRIVATE izan_domain izan_units)
 
+# L5 shell. Heavy fetch (GLFW/FreeType/ImGui); switch it off to keep a
+# trust-plane-only build fast.
+option(IZAN_BUILD_UI "Build the wallet UI" ON)
+if(IZAN_BUILD_UI AND WIN32)
+    include(cmake/gui_deps.cmake)
+    add_executable(izan_ui_smoke ui/smoke_main.cpp)
+    target_link_libraries(izan_ui_smoke PRIVATE izan_imgui)
+endif()
+
 enable_testing()
 add_executable(izan_tests
     tests/main.cpp
