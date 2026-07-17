@@ -32,32 +32,39 @@ namespace {
 
 using namespace izan;
 
-// Runtime preferences, kept beside the exe. Losing this file loses a
-// theme choice, nothing more — it holds no secrets and no money facts.
+// Runtime preferences. Losing this file loses a theme choice and a
+// window layout, nothing more — it holds no secrets and no money facts.
 struct Settings {
     std::string language = "en";
     int theme_index = 0;
     float window_opacity = 0.96f;
+    // imgui's window/dock layout, captured with SaveIniSettingsToMemory.
+    // Owning it here keeps every preference in one file and no stray
+    // *.imgui.ini anywhere.
+    std::string layout;
 };
+
+// Every piece of mutable state — vault, audit ledger, settings — lives
+// in %APPDATA%\izan. The exe's own directory is the wrong home for it:
+// under Program Files or an MSIX package it is not writable (worse,
+// unelevated writes get silently redirected to VirtualStore), and it
+// is shared between users. AppData is per-user, always writable, and
+// indifferent to where the exe sits or which cwd launched it.
+std::filesystem::path state_dir()
+{
+    if (const char* appdata = std::getenv("APPDATA")) {
+        const auto dir = std::filesystem::path(appdata) / "izan";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        if (!ec)
+            return dir;
+    }
+    return ui::executable_dir();
+}
 
 std::filesystem::path settings_path()
 {
-    return ui::executable_dir() / "izan.settings.json";
-}
-
-Settings load_settings()
-{
-    Settings s;
-    std::ifstream f(settings_path(), std::ios::binary);
-    if (!f)
-        return s;
-    std::ostringstream buf;
-    buf << f.rdbuf();
-    Settings parsed;
-    if (!glz::read<glz::opts { .error_on_unknown_keys = false }>(
-            parsed, buf.str()))
-        s = parsed;
-    return s;
+    return state_dir() / "izan.settings.json";
 }
 
 void save_settings(const Settings& s)
@@ -69,16 +76,39 @@ void save_settings(const Settings& s)
     f << out;
 }
 
+Settings load_settings()
+{
+    const auto read_from = [](const std::filesystem::path& path, Settings& s) {
+        std::ifstream f(path, std::ios::binary);
+        if (!f)
+            return false;
+        std::ostringstream buf;
+        buf << f.rdbuf();
+        Settings parsed;
+        if (glz::read<glz::opts { .error_on_unknown_keys = false }>(
+                parsed, buf.str()))
+            return false;
+        s = parsed;
+        return true;
+    };
+
+    Settings s;
+    if (read_from(settings_path(), s))
+        return s;
+    // One-time relocation from the old beside-the-exe home; the old
+    // file moves rather than lingering as a shadow copy.
+    const auto old = ui::executable_dir() / "izan.settings.json";
+    if (old != settings_path() && read_from(old, s)) {
+        save_settings(s);
+        std::error_code ec;
+        std::filesystem::remove(old, ec);
+    }
+    return s;
+}
+
 std::string default_vault_path()
 {
-    if (const char* appdata = std::getenv("APPDATA")) {
-        const auto dir = std::filesystem::path(appdata) / "izan";
-        std::error_code ec;
-        std::filesystem::create_directories(dir, ec);
-        if (!ec)
-            return (dir / "izan.qvlt").string();
-    }
-    return (ui::executable_dir() / "izan.qvlt").string();
+    return (state_dir() / "izan.qvlt").string();
 }
 
 std::string self_exe_path()
@@ -121,6 +151,25 @@ int main(int argc, char** argv)
     options.height = 900;
     if (!app.init(options))
         return 1;
+
+    // The layout travels inside the settings file; the shell keeps
+    // imgui's own ini writer off. Adopt (and retire) a leftover ini
+    // from the older scheme once.
+    if (settings.layout.empty()) {
+        const auto oldIni = ui::executable_dir() / "izan.imgui.ini";
+        std::ifstream f(oldIni, std::ios::binary);
+        if (f) {
+            std::ostringstream buf;
+            buf << f.rdbuf();
+            settings.layout = buf.str();
+            f.close();
+            std::error_code ec;
+            std::filesystem::remove(oldIni, ec);
+        }
+    }
+    if (!settings.layout.empty())
+        ImGui::LoadIniSettingsFromMemory(
+            settings.layout.data(), settings.layout.size());
 
     ui::ChromeState chrome;
     chrome.theme_index = settings.theme_index;
@@ -237,11 +286,21 @@ int main(int argc, char** argv)
             settings.window_opacity = chrome.window_opacity;
             save_settings(settings);
         }
+        // imgui raises this (throttled by its settings timer) whenever
+        // the layout changed; with no ini file of its own, persisting
+        // is our move.
+        if (ImGui::GetIO().WantSaveIniSettings) {
+            ImGui::GetIO().WantSaveIniSettings = false;
+            settings.layout = ImGui::SaveIniSettingsToMemory();
+            save_settings(settings);
+        }
         if (chrome.request_exit)
             glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
 
         app.end_frame(ui::theme_clear_color(chrome));
     });
     app.run();
+    settings.layout = ImGui::SaveIniSettingsToMemory();
+    save_settings(settings);
     return 0;
 }

@@ -9,12 +9,8 @@ struct GLFWwindow;
 namespace izan::ui {
 
 // GLFW + ImGui (docking, freetype) application lifecycle:
-// init / begin_frame / end_frame / shutdown.
-
-// Pins imgui.ini beside the exe, named <exe>.imgui.ini — the default
-// writes into whatever cwd the app was launched from, sprouting layout
-// variants all over the disk. GlfwApp::init calls this automatically.
-void pin_ini_beside_executable(ImGuiIO& io);
+// init / begin_frame / end_frame / shutdown. imgui's own ini file is
+// disabled; layout persistence is the host's business.
 
 struct AppOptions {
     const char* title = "izan";

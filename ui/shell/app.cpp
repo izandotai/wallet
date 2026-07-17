@@ -11,9 +11,6 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
-#include <array>
-#include <filesystem>
-#include <string>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -23,25 +20,6 @@ namespace izan::ui {
 
 namespace {
     constexpr const char* kGlslVersion = "#version 130";
-
-    // io.IniFilename stores only the pointer; the string must outlive
-    // DestroyContext.
-    std::string g_ini_path;
-}
-
-void pin_ini_beside_executable(ImGuiIO& io)
-{
-    std::filesystem::path exe_stem = "izan";
-#ifdef _WIN32
-    std::array<char, MAX_PATH> path {};
-    const DWORD length = GetModuleFileNameA(
-        nullptr, path.data(), static_cast<DWORD>(path.size()));
-    if (length != 0 && length != path.size())
-        exe_stem = std::filesystem::path(path.data()).stem();
-#endif
-    g_ini_path
-        = (executable_dir() / (exe_stem.string() + ".imgui.ini")).string();
-    io.IniFilename = g_ini_path.c_str();
 }
 
 GlfwApp::~GlfwApp()
@@ -104,7 +82,12 @@ bool GlfwApp::init(const AppOptions& options)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    pin_ini_beside_executable(io);
+    // No imgui ini file, ever: left at its default the library writes
+    // imgui.ini into whatever cwd launched the app. A host that wants
+    // layout persistence saves SaveIniSettingsToMemory into its own
+    // settings file (izan does); a host that doesn't gets no stray
+    // files.
+    io.IniFilename = nullptr;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
