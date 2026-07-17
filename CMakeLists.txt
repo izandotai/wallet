@@ -179,6 +179,7 @@ target_link_libraries(izan_codec PUBLIC izan_units PRIVATE izan_trezor)
 # Windows-first; the Debian port arrives with its production target.
 if(WIN32)
     add_library(izan_ipc STATIC
+        platform/ipc/named_pipe.cpp
         platform/ipc/pipe.cpp
         platform/ipc/secret_channel.cpp
         platform/proc/child_process.cpp
@@ -189,6 +190,7 @@ if(WIN32)
     # Trust plane: vault custody behind the password channel. Links
     # primitives only — no chains, no net, no UI, by construction.
     add_library(izan_keyd STATIC
+        keyd/audit.cpp
         keyd/child.cpp
         keyd/client.cpp
         keyd/hardening.cpp
@@ -245,6 +247,7 @@ add_executable(izan_tests
     tests/assets_test.cpp
     tests/portfolio_test.cpp
     tests/keyd_test.cpp
+    tests/proposals_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
     izan_codec izan_domain izan_platform doctest::doctest)
