@@ -31,7 +31,8 @@ Early development — nothing here is ready for real funds.
       live-tested against mainnet RPC)
 - [x] Balance reads: native + ERC-20 (minimal ABI codec, endpoint
       failover, live-tested on Ethereum and Robinhood Chain)
-- [ ] Token lists, watch-only portfolio view
+- [x] Watch-only portfolio: token list config (decimals audited against
+      the chain), multi-chain snapshot, `izan_watch` CLI
 - [ ] Transaction engine (EIP-1559 first)
 - [ ] UI shell
 

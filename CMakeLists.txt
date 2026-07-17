@@ -178,10 +178,16 @@ add_library(izan_domain STATIC
     domain/chains/jsonrpc.cpp
     domain/chains/rpc_client.cpp
     domain/assets/balances.cpp
+    domain/assets/portfolio.cpp
+    domain/assets/token_registry.cpp
 )
 target_include_directories(izan_domain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_domain PUBLIC izan_units
     PRIVATE glaze::glaze izan_codec izan_crypto izan_platform)
+
+# Watch-only CLI: paste an address, see the assets.
+add_executable(izan_watch apps/watch_main.cpp)
+target_link_libraries(izan_watch PRIVATE izan_domain izan_units)
 
 enable_testing()
 add_executable(izan_tests
@@ -197,6 +203,7 @@ add_executable(izan_tests
     tests/net_test.cpp
     tests/abi_test.cpp
     tests/assets_test.cpp
+    tests/portfolio_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
     izan_codec izan_domain izan_platform doctest::doctest)
