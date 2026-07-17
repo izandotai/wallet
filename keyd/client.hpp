@@ -68,6 +68,10 @@ public:
         uint64_t id);
     bool approve(uint64_t id, const secure::SecureBytes& passphrase);
     bool deny(uint64_t id);
+    // Backup: re-presents the passphrase, returns the BIP-39 entropy in
+    // guarded memory. nullopt carries the refusal in last_error().
+    std::optional<secure::SecureBytes> reveal(
+        const secure::SecureBytes& passphrase);
 
     const std::string& last_error() const
     {

@@ -21,6 +21,10 @@ enum class Op : uint8_t {
     Deny = 0x06,    // body: u64-LE proposal id
     Pending = 0x07, // body: empty
     Fetch = 0x08,   // body: u64-LE proposal id
+    // Backup shows the human their recovery phrase — the most
+    // dangerous read in the system, so it spends the passphrase like
+    // an approval does.
+    Reveal = 0x09, // body: passphrase bytes
 
     // replies (keyd → UI)
     Hello = 0x40,       // body: version, hardening bitmask (sent once at start)
@@ -29,7 +33,15 @@ enum class Op : uint8_t {
     State = 0x43,       // body: 0 = locked, 1 = unlocked
     PendingList = 0x44, // body: repeated { u64-LE id, u8 provenance }
     ProposalBody = 0x45, // body: u8 provenance, then payload bytes
+    Entropy = 0x46,      // body: BIP-39 entropy bytes (16/32)
 };
+
+// Wrong-passphrase throttle: once this many verifications fail in a
+// row, every further attempt stalls (seconds growing with the streak,
+// capped) before it is even examined. Lives in the child so restarting
+// the UI does not reset the meter.
+inline constexpr int kPassThrottleAfter = 3;
+inline constexpr int kPassThrottleCapSeconds = 10;
 
 inline constexpr uint8_t kProtocolVersion = 1;
 

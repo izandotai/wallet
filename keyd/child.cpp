@@ -1,6 +1,8 @@
 #include "keyd/child.hpp"
 
+#include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -242,6 +244,17 @@ int child_main(int argc, char** argv)
         if (!send_op(channel, Op::Hello, hello, sizeof hello))
             return 0;
 
+        // One meter for every passphrase-spending operation. Sitting in
+        // this process means killing and respawning the UI does not
+        // reset it.
+        int badPass = 0;
+        const auto throttle_bad_pass = [&badPass] {
+            if (badPass >= kPassThrottleAfter)
+                std::this_thread::sleep_for(std::chrono::seconds(
+                    std::min(badPass - kPassThrottleAfter + 1,
+                        kPassThrottleCapSeconds)));
+        };
+
         for (;;) {
             std::optional<SecureBytes> frame = channel.recv();
             if (!frame)
@@ -251,15 +264,18 @@ int child_main(int argc, char** argv)
             const Op op = Op(frame->data()[0]);
             switch (op) {
             case Op::Unlock: {
+                throttle_bad_pass();
                 SecureBytes pass(frame->size() - 1);
                 if (!pass.empty())
                     std::memcpy(pass.data(), frame->data() + 1, pass.size());
                 try {
                     vault::Wallet opened = vault::open(vaultPath, pass);
+                    badPass = 0;
                     std::lock_guard lock(holder->mutex);
                     holder->wallet = std::move(opened);
                     send_op(channel, Op::Ok);
                 } catch (const std::exception& e) {
+                    ++badPass;
                     std::lock_guard lock(holder->mutex);
                     holder->wallet.reset();
                     send_err(channel, e.what());
@@ -286,13 +302,16 @@ int child_main(int argc, char** argv)
                     send_err(channel, "short frame");
                     break;
                 }
+                throttle_bad_pass();
                 const uint64_t id = get_u64le(frame->data() + 1);
                 SecureBytes pass(frame->size() - 9);
                 if (!pass.empty())
                     std::memcpy(pass.data(), frame->data() + 9, pass.size());
                 try {
                     vault::open(vaultPath, pass);
+                    badPass = 0;
                 } catch (const std::exception&) {
+                    ++badPass;
                     plane->audit.append(
                         "proposal.approve.badpass id=" + std::to_string(id));
                     send_err(channel, "bad passphrase");
@@ -350,6 +369,32 @@ int child_main(int argc, char** argv)
                 std::memcpy(
                     body.data() + 1, p->payload.data(), p->payload.size());
                 send_op(channel, Op::ProposalBody, body.data(), body.size());
+                break;
+            }
+            case Op::Reveal: {
+                throttle_bad_pass();
+                SecureBytes pass(frame->size() - 1);
+                if (!pass.empty())
+                    std::memcpy(pass.data(), frame->data() + 1, pass.size());
+                try {
+                    vault::Wallet opened = vault::open(vaultPath, pass);
+                    badPass = 0;
+                    if (opened.entropy.empty()) {
+                        send_err(channel, "no seed in vault");
+                        break;
+                    }
+                    plane->audit.append("vault.reveal");
+                    std::vector<uint8_t> out(1 + opened.entropy.size());
+                    out[0] = uint8_t(Op::Entropy);
+                    std::memcpy(out.data() + 1, opened.entropy.data(),
+                        opened.entropy.size());
+                    channel.send(out.data(), out.size());
+                    sodium_memzero(out.data(), out.size());
+                } catch (const std::exception&) {
+                    ++badPass;
+                    plane->audit.append("vault.reveal.badpass");
+                    send_err(channel, "bad passphrase");
+                }
                 break;
             }
             case Op::Shutdown: {

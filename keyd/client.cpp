@@ -203,6 +203,28 @@ bool KeydClient::approve(uint64_t id, const SecureBytes& passphrase)
     return false;
 }
 
+std::optional<SecureBytes> KeydClient::reveal(const SecureBytes& passphrase)
+{
+    std::vector<uint8_t> frame(1 + passphrase.size());
+    frame[0] = uint8_t(Op::Reveal);
+    if (!passphrase.empty())
+        std::memcpy(frame.data() + 1, passphrase.data(), passphrase.size());
+    std::optional<SecureBytes> reply = request(frame.data(), frame.size());
+    sodium_memzero(frame.data(), frame.size());
+    if (!reply || reply->empty()) {
+        m_last_error = "channel broken";
+        return std::nullopt;
+    }
+    if (reply->data()[0] != uint8_t(Op::Entropy)) {
+        m_last_error.assign(reinterpret_cast<const char*>(reply->data()) + 1,
+            reply->size() - 1);
+        return std::nullopt;
+    }
+    SecureBytes out(reply->size() - 1);
+    std::memcpy(out.data(), reply->data() + 1, out.size());
+    return out;
+}
+
 bool KeydClient::deny(uint64_t id)
 {
     uint8_t frame[9];

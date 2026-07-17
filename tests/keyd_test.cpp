@@ -2,6 +2,7 @@
 
 #include <doctest/doctest.h>
 
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -189,12 +190,79 @@ TEST_CASE("keyd child: session lock wipes the unlocked vault")
         std::ifstream ledger(auditPath);
         std::string line;
         std::getline(ledger, line);
-        CHECK(
-            line.find("autolock reason=session-lock") != std::string::npos);
+        CHECK(line.find("autolock reason=session-lock") != std::string::npos);
     }
 
     std::filesystem::remove(auditPath);
     std::filesystem::remove(vaultPath);
+    std::filesystem::remove(vaultPath + ".bak");
+}
+
+TEST_CASE("keyd child: reveal spends the passphrase and returns the entropy")
+{
+    const std::string vaultPath
+        = (std::filesystem::temp_directory_path() / "keyd_reveal.qvlt")
+              .string();
+    izan::vault::Wallet wallet;
+    wallet.entropy = SecureBytes(16);
+    randombytes_buf(wallet.entropy.data(), wallet.entropy.size());
+    uint8_t expect[16];
+    std::memcpy(expect, wallet.entropy.data(), 16);
+    izan::vault::save(
+        vaultPath, sb_from("correct horse"), wallet, izan::vault::kdf_min());
+
+    izan::keyd::KeydClient keyd
+        = izan::keyd::KeydClient::spawn(self_exe(), vaultPath);
+
+    CHECK(!keyd.reveal(sb_from("wrong pass")));
+    CHECK(keyd.last_error() == "bad passphrase");
+
+    auto entropy = keyd.reveal(sb_from("correct horse"));
+    REQUIRE(entropy);
+    REQUIRE(entropy->size() == 16);
+    CHECK(std::memcmp(entropy->data(), expect, 16) == 0);
+
+    CHECK(keyd.shutdown());
+    auto exit = keyd.wait_exit(5000);
+    REQUIRE(exit);
+
+    std::filesystem::remove(vaultPath);
+    std::filesystem::remove(vaultPath + ".audit");
+    std::filesystem::remove(vaultPath + ".bak");
+}
+
+TEST_CASE("keyd child: a wrong-passphrase streak hits the throttle")
+{
+    using Clock = std::chrono::steady_clock;
+    const std::string vaultPath = make_test_vault("correct horse");
+    izan::keyd::KeydClient keyd
+        = izan::keyd::KeydClient::spawn(self_exe(), vaultPath);
+
+    // Three misses are answered at argon2 speed…
+    const auto t0 = Clock::now();
+    for (int i = 0; i < 3; ++i)
+        CHECK(!keyd.unlock(sb_from("wrong pass")));
+    const auto t1 = Clock::now();
+
+    // …the fourth stalls a full second before it is even considered.
+    CHECK(!keyd.unlock(sb_from("wrong pass")));
+    const auto t2 = Clock::now();
+    CHECK(t2 - t1 >= std::chrono::milliseconds(900));
+
+    // A correct passphrase still gets in (after its stall) and resets
+    // the meter: the next miss is fast again.
+    CHECK(keyd.unlock(sb_from("correct horse")));
+    const auto t3 = Clock::now();
+    CHECK(!keyd.unlock(sb_from("wrong pass")));
+    CHECK(Clock::now() - t3 < std::chrono::milliseconds(900));
+
+    (void)t0;
+    CHECK(keyd.shutdown());
+    auto exit = keyd.wait_exit(5000);
+    REQUIRE(exit);
+
+    std::filesystem::remove(vaultPath);
+    std::filesystem::remove(vaultPath + ".audit");
     std::filesystem::remove(vaultPath + ".bak");
 }
 
