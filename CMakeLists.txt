@@ -19,6 +19,11 @@ if(MINGW)
     add_link_options(-static)
     # Windows 10 API surface (process mitigation policies live there).
     add_compile_definitions(_WIN32_WINNT=0x0A00)
+    # DEP/ASLR link bits set explicitly — mingw does not guarantee the
+    # defaults — and audited from inside the binary by linkbits_test,
+    # which also checks the relocations that make the ASLR bit real.
+    # CFG is not attainable through GCC; recorded, not claimed.
+    add_link_options(-Wl,--nxcompat -Wl,--dynamicbase -Wl,--high-entropy-va)
 endif()
 
 # Distribution builds (-DCMAKE_BUILD_TYPE=Release): strip symbols, drop
@@ -247,6 +252,7 @@ add_executable(izan_tests
     tests/assets_test.cpp
     tests/portfolio_test.cpp
     tests/keyd_test.cpp
+    tests/linkbits_test.cpp
     tests/proposals_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
