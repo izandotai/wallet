@@ -33,7 +33,14 @@ FetchContent_Declare(sodium
     GIT_TAG 9b2848dfc1b917a9410f0de9d81059b26cbfaa8d
     EXCLUDE_FROM_ALL
 )
-FetchContent_MakeAvailable(trezor_firmware doctest sodium)
+# Reflection-based JSON for configs and RPC envelopes. A wallet has no
+# hot parse path; one JSON library is enough.
+FetchContent_Declare(glaze
+    URL https://github.com/stephenberry/glaze/archive/refs/tags/v7.8.4.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(trezor_firmware doctest sodium glaze)
 
 set(TREZOR ${trezor_firmware_SOURCE_DIR}/crypto)
 
@@ -123,6 +130,15 @@ add_library(izan_crypto STATIC
 target_include_directories(izan_crypto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_crypto PUBLIC izan_trezor)
 
+# L3 domain: chain registry and RPC plumbing. Links primitives only —
+# never the trust plane.
+add_library(izan_domain STATIC
+    domain/chains/chain_spec.cpp
+    domain/chains/jsonrpc.cpp
+)
+target_include_directories(izan_domain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(izan_domain PUBLIC izan_units PRIVATE glaze::glaze)
+
 enable_testing()
 add_executable(izan_tests
     tests/bip39_test.cpp
@@ -133,8 +149,11 @@ add_executable(izan_tests
     tests/secure_bytes_test.cpp
     tests/vault_test.cpp
     tests/units_test.cpp
+    tests/chains_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
-    doctest::doctest)
+    izan_domain doctest::doctest)
+target_compile_definitions(izan_tests
+    PRIVATE IZAN_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(izan_tests PRIVATE tests)
 add_test(NAME izan_tests COMMAND izan_tests)

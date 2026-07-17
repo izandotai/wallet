@@ -26,7 +26,8 @@ Early development — nothing here is ready for real funds.
 - [x] Encrypted vault (argon2id, locked memory, wipe-on-drop)
 - [x] Exact integer amounts (U256, decimal ↔ base-unit conversion)
 - [ ] Signer process (keyd) with proposal/approval protocol
-- [ ] Chain RPC layer, balances, watch-only mode
+- [x] Chain registry (config-driven EVM list) and JSON-RPC codec
+- [ ] Chain RPC transport, balances, watch-only mode
 - [ ] Transaction engine (EIP-1559 first)
 - [ ] UI shell
 
