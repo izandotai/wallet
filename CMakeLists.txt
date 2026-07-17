@@ -25,7 +25,15 @@ FetchContent_Declare(doctest
     DOWNLOAD_EXTRACT_TIMESTAMP ON
     EXCLUDE_FROM_ALL
 )
-FetchContent_MakeAvailable(trezor_firmware doctest)
+# libsodium behind a CMake wrapper, both pinned (wrapper commit → bundled
+# libsodium submodule). Guarded allocations for key material live here.
+set(SODIUM_DISABLE_TESTS ON)
+FetchContent_Declare(sodium
+    GIT_REPOSITORY https://github.com/robinlinden/libsodium-cmake.git
+    GIT_TAG 9b2848dfc1b917a9410f0de9d81059b26cbfaa8d
+    EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(trezor_firmware doctest sodium)
 
 set(TREZOR ${trezor_firmware_SOURCE_DIR}/crypto)
 
@@ -79,10 +87,24 @@ target_include_directories(izan_trezor PUBLIC ${TREZOR})
 # the rule that all key material must be wipeable, so the caches stay off.
 target_compile_definitions(izan_trezor PUBLIC USE_KECCAK=1
     USE_BIP39_CACHE=0 USE_BIP32_CACHE=0)
+# trezor's blake2b and ed25519-donna ge25519_* collide with libsodium's
+# internal symbols once both archives meet in one binary; rename at
+# compile time.
+target_compile_definitions(izan_trezor PRIVATE
+    blake2b=izan_trezor_blake2b blake2b_Key=izan_trezor_blake2b_Key
+    blake2b_init_param=izan_trezor_blake2b_init_param
+    ge25519_add=izan_trezor_ge25519_add
+    ge25519_scalarmult=izan_trezor_ge25519_scalarmult
+    ge25519_double_scalarmult_vartime=izan_trezor_ge25519_dsm_vartime)
 target_compile_options(izan_trezor PRIVATE -w)
 if(WIN32)
     target_link_libraries(izan_trezor PUBLIC bcrypt)
 endif()
+
+# Guarded containers for key material (header-only over libsodium).
+add_library(izan_secure INTERFACE)
+target_include_directories(izan_secure INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(izan_secure INTERFACE sodium)
 
 add_library(izan_crypto STATIC
     core/crypto/bip39.cpp
@@ -101,7 +123,9 @@ add_executable(izan_tests
     tests/eth_test.cpp
     tests/hd_test.cpp
     tests/sol_test.cpp
+    tests/secure_bytes_test.cpp
 )
-target_link_libraries(izan_tests PRIVATE izan_crypto doctest::doctest)
+target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure
+    doctest::doctest)
 target_include_directories(izan_tests PRIVATE tests)
 add_test(NAME izan_tests COMMAND izan_tests)
