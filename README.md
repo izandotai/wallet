@@ -23,7 +23,8 @@ Early development — nothing here is ready for real funds.
       against the ecosystem's best-known mnemonic→address pair)
 - [x] Bitcoin P2WPKH addresses (BIP-84 official vectors)
 - [x] Solana keys, SLIP-0010 ed25519 (both spec vectors, hardened-only)
-- [ ] Encrypted vault (argon2id, locked memory, wipe-on-drop)
+- [x] Encrypted vault (argon2id, locked memory, wipe-on-drop)
+- [x] Exact integer amounts (U256, decimal ↔ base-unit conversion)
 - [ ] Signer process (keyd) with proposal/approval protocol
 - [ ] Chain RPC layer, balances, watch-only mode
 - [ ] Transaction engine (EIP-1559 first)

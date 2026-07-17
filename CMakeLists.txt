@@ -101,6 +101,10 @@ if(WIN32)
     target_link_libraries(izan_trezor PUBLIC bcrypt)
 endif()
 
+# Exact integer money: U256 amounts and decimal conversion, header-only.
+add_library(izan_units INTERFACE)
+target_include_directories(izan_units INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
 # Key-material hygiene: guarded SecureBytes container and the encrypted
 # vault file, both over libsodium.
 add_library(izan_secure STATIC
@@ -128,8 +132,9 @@ add_executable(izan_tests
     tests/sol_test.cpp
     tests/secure_bytes_test.cpp
     tests/vault_test.cpp
+    tests/units_test.cpp
 )
-target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure
+target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
     doctest::doctest)
 target_include_directories(izan_tests PRIVATE tests)
 add_test(NAME izan_tests COMMAND izan_tests)
