@@ -16,9 +16,14 @@
 #include <windows.h>
 
 extern "C" {
+// Upstream header trips C++20's volatile-parameter deprecation; not ours
+// to fix, not ours to drown in either.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvolatile"
 #include <ecdsa.h>
 #include <secp256k1.h>
 #include <sha3.h>
+#pragma GCC diagnostic pop
 }
 
 #include "core/crypto/bip39.hpp"

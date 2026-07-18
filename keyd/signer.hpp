@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "core/crypto/hd.hpp"
 #include "core/secure/secure_bytes.hpp"
@@ -70,6 +71,12 @@ struct ProposalBody {
 // Splits an envelope off a queued payload. Throws on a truncated
 // envelope or an empty tx body.
 ProposalBody parse_proposal(std::span<const uint8_t> payload);
+
+// Packs the v2 envelope around tx bytes — the exact inverse of
+// parse_proposal, so the identity a submitter intends is the identity
+// the queue carries.
+std::vector<uint8_t> make_envelope(
+    DerivePreset preset, uint32_t account, std::span<const uint8_t> tx);
 
 // The moment key material meets a transaction: wallet + account index
 // → signing key → sign keccak256(tx). Every intermediate (mnemonic,

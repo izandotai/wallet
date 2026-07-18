@@ -1,0 +1,126 @@
+#include "ui/wallet/store.hpp"
+
+#include <algorithm>
+#include <fstream>
+#include <sstream>
+
+#include <glaze/glaze.hpp>
+#include <sodium.h>
+
+extern "C" {
+#include <sha2.h>
+}
+
+#include "keyd/signer.hpp"
+
+namespace izan::ui {
+
+WalletStore::WalletStore(std::filesystem::path dir)
+    : m_dir(std::move(dir))
+{
+    std::error_code ec;
+    std::filesystem::create_directories(m_dir, ec);
+    rescan();
+}
+
+void WalletStore::rescan()
+{
+    m_wallets.clear();
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(m_dir, ec)) {
+        if (entry.path().extension() != ".qvlt")
+            continue;
+        const std::string id = entry.path().stem().string();
+        const AccountsMeta meta = read_meta(id);
+        // Pre-sidecar wallets (the migrated "main") display their id.
+        m_wallets.push_back({ id, meta.name.empty() ? id : meta.name });
+    }
+    std::sort(m_wallets.begin(), m_wallets.end(),
+        [](const WalletEntry& a, const WalletEntry& b) {
+            return a.name < b.name;
+        });
+}
+
+bool WalletStore::known(const std::string& id) const
+{
+    return std::any_of(m_wallets.begin(), m_wallets.end(),
+        [&](const WalletEntry& w) { return w.id == id; });
+}
+
+std::string WalletStore::first_id() const
+{
+    return m_wallets.empty() ? std::string() : m_wallets.front().id;
+}
+
+std::string WalletStore::vault_path(const std::string& id) const
+{
+    return (m_dir / (id + ".qvlt")).string();
+}
+
+std::filesystem::path WalletStore::meta_path(const std::string& id) const
+{
+    return m_dir / (id + ".accounts.json");
+}
+
+AccountsMeta WalletStore::read_meta(const std::string& id) const
+{
+    AccountsMeta meta;
+    std::ifstream f(meta_path(id), std::ios::binary);
+    if (f) {
+        std::ostringstream buf;
+        buf << f.rdbuf();
+        AccountsMeta parsed;
+        if (!glz::read<glz::opts { .error_on_unknown_keys = false }>(
+                parsed, buf.str()))
+            meta = parsed;
+    }
+    if (meta.count == 0)
+        meta.count = 1;
+    if (meta.active >= meta.count)
+        meta.active = 0;
+    if (meta.preset >= keyd::kDerivePresetCount)
+        meta.preset = 0;
+    return meta;
+}
+
+void WalletStore::write_meta(
+    const std::string& id, const AccountsMeta& meta) const
+{
+    std::string out;
+    if (glz::write<glz::opts { .prettify = true }>(meta, out))
+        return;
+    std::ofstream f(meta_path(id), std::ios::binary | std::ios::trunc);
+    f << out;
+}
+
+bool WalletStore::valid_new_name(std::string_view display) const
+{
+    if (display.empty() || display.size() > 48)
+        return false;
+    for (const char c : display)
+        if (uint8_t(c) < 0x20)
+            return false;
+    return std::none_of(m_wallets.begin(), m_wallets.end(),
+        [&](const WalletEntry& w) { return w.name == display; });
+}
+
+std::string WalletStore::mint_id(std::string_view display)
+{
+    uint8_t salt[8];
+    randombytes_buf(salt, sizeof salt);
+    std::string seed(display);
+    seed.append(reinterpret_cast<const char*>(salt), sizeof salt);
+
+    uint8_t digest[32];
+    sha256_Raw(
+        reinterpret_cast<const uint8_t*>(seed.data()), seed.size(), digest);
+    static constexpr char kHex[] = "0123456789abcdef";
+    std::string id(16, '0');
+    for (int i = 0; i < 8; ++i) {
+        id[std::size_t(2 * i)] = kHex[digest[i] >> 4];
+        id[std::size_t(2 * i + 1)] = kHex[digest[i] & 0xF];
+    }
+    return id;
+}
+
+}

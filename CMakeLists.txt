@@ -247,6 +247,21 @@ add_library(izan_i18n STATIC
 target_include_directories(izan_i18n PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_i18n PRIVATE glaze::glaze)
 
+# The wallet UI's headless layer: directory store, import model, keyd
+# session, preset naming. Everything a page decides lives here where
+# tests can reach it; the page files only draw.
+if(WIN32)
+    add_library(izan_wallet_ui STATIC
+        ui/wallet/import_model.cpp
+        ui/wallet/presets.cpp
+        ui/wallet/session.cpp
+        ui/wallet/store.cpp
+    )
+    target_include_directories(izan_wallet_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(izan_wallet_ui PUBLIC izan_keyd izan_crypto
+        izan_secure PRIVATE glaze::glaze)
+endif()
+
 # Watch-only CLI: paste an address, see the assets.
 add_executable(izan_watch apps/watch_main.cpp)
 target_link_libraries(izan_watch PRIVATE izan_domain izan_units)
@@ -294,9 +309,16 @@ if(IZAN_BUILD_UI AND WIN32)
         ui/pages/portfolio_page.cpp
         ui/pages/send_page.cpp
         ui/pages/vault_page.cpp
+        ui/pages/vault/accounts_view.cpp
+        ui/pages/vault/create_view.cpp
+        ui/pages/vault/import_view.cpp
+        ui/pages/vault/secret_view.cpp
+        ui/pages/vault/unlock_view.cpp
+        ui/widgets/secret_field.cpp
     )
     target_link_libraries(izan PRIVATE izan_ui_shell izan_i18n izan_keyd
-        izan_crypto izan_secure izan_domain izan_units glaze::glaze)
+        izan_wallet_ui izan_crypto izan_secure izan_domain izan_units
+        glaze::glaze)
     izan_ui_copy_assets(izan)
     add_custom_command(TARGET izan POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -327,6 +349,7 @@ add_executable(izan_tests
     tests/txflow_test.cpp
     tests/family_test.cpp
     tests/import_test.cpp
+    tests/wallet_ui_test.cpp
     tests/keyd_test.cpp
     tests/linkbits_test.cpp
     tests/proposals_test.cpp
@@ -334,7 +357,7 @@ add_executable(izan_tests
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
     izan_codec izan_domain izan_i18n izan_platform doctest::doctest)
 if(WIN32)
-    target_link_libraries(izan_tests PRIVATE izan_keyd)
+    target_link_libraries(izan_tests PRIVATE izan_keyd izan_wallet_ui)
 endif()
 target_compile_definitions(izan_tests
     PRIVATE IZAN_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")

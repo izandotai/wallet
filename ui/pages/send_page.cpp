@@ -298,12 +298,9 @@ void SendPage::draw_review(const i18n::Catalog& tr)
             // Envelope v2: preset and account index travel inside the
             // queued bytes, so the identity the human approves — down
             // to its derivation dialect — is the identity that signs.
-            std::vector<uint8_t> payload { keyd::kEnvelopeV2, m_preset,
-                uint8_t(m_account), uint8_t(m_account >> 8),
-                uint8_t(m_account >> 16), uint8_t(m_account >> 24) };
-            const std::vector<uint8_t> body = tx::signing_payload(m_tx);
-            payload.insert(payload.end(), body.begin(), body.end());
-            id = m_vault.keyd()->submit_ui(payload);
+            id = m_vault.keyd()->submit_ui(
+                keyd::make_envelope(keyd::DerivePreset(m_preset), m_account,
+                    tx::signing_payload(m_tx)));
         }
         if (!id) {
             m_status = m_vault.keyd() ? m_vault.keyd()->last_error()

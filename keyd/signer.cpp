@@ -175,6 +175,16 @@ ProposalBody parse_proposal(std::span<const uint8_t> payload)
     return body;
 }
 
+std::vector<uint8_t> make_envelope(
+    DerivePreset preset, uint32_t account, std::span<const uint8_t> tx)
+{
+    std::vector<uint8_t> payload { kEnvelopeV2, uint8_t(preset),
+        uint8_t(account), uint8_t(account >> 8), uint8_t(account >> 16),
+        uint8_t(account >> 24) };
+    payload.insert(payload.end(), tx.begin(), tx.end());
+    return payload;
+}
+
 SignedDigest sign_payload(const vault::Wallet& wallet,
     std::span<const uint8_t> tx, uint32_t account, DerivePreset preset)
 {
