@@ -146,12 +146,12 @@ private:
     uint32_t m_account_active = 0;
     uint8_t m_preset = 0; // keyd::DerivePreset of the active wallet
     std::vector<std::string> m_account_addrs;
-    // Import-form recognition: what the pasted text is, plus address
-    // previews — three first addresses for a mnemonic (one per preset,
-    // clicking one selects it), a single address for a key or WIF.
+    // Import-form recognition: what the pasted text is, plus one
+    // address preview per preset the secret can wear — a mnemonic
+    // offers every family, a key offers ETH and the BTC formats, and
+    // clicking an address selects its preset.
     crypto::SecretKind m_detect = crypto::SecretKind::Unrecognized;
-    std::array<std::string, 3> m_preset_addrs {};
-    std::string m_detect_addr;
+    std::array<std::string, 8> m_preset_addrs {};
     uint8_t m_import_preset = 0;
     std::string m_status;           // last message key or verbatim error
     bool m_status_is_key = false;

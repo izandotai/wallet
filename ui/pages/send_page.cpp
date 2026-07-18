@@ -194,9 +194,18 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     ImGui::InputText(tr("send.to"), m_to.data(), m_to.size());
     ImGui::InputText(tr("send.amount"), m_amount.data(), m_amount.size());
 
-    const bool ready = m_vault.unlocked() && m_vault.keyd() != nullptr;
-    if (!ready)
+    const bool unlocked = m_vault.unlocked() && m_vault.keyd() != nullptr;
+    // Only the EVM family has a transaction engine so far; a wallet
+    // wearing a BTC or Solana preset receives on that chain but cannot
+    // spend from here yet.
+    const bool evm
+        = keyd::preset_family(keyd::DerivePreset(m_vault.active_preset()))
+        == keyd::ChainFamily::Eth;
+    const bool ready = unlocked && evm;
+    if (!unlocked)
         ImGui::TextDisabled("%s", tr("send.state.locked"));
+    else if (!evm)
+        ImGui::TextDisabled("%s", tr("send.err.family"));
 
     ImGui::BeginDisabled(!ready || m_job != nullptr);
     if (ImGui::Button(tr("send.review"))) {

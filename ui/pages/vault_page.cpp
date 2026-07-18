@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <span>
 #include <sstream>
 #include <thread>
 
@@ -36,10 +37,39 @@ namespace {
         uint8_t preset = 0;
     };
 
-    // Product names, not translatable text — a preset is the vendor
-    // whose paths it copies.
+    // Product and standard names, not translatable text — a preset is
+    // the vendor or BIP whose scheme it copies.
     constexpr const char* kPresetNames[keyd::kDerivePresetCount]
-        = { "MetaMask", "Ledger Live", "Legacy MEW" };
+        = { "MetaMask", "Ledger Live", "Legacy MEW", "BTC Legacy (BIP44)",
+              "BTC Nested SegWit (BIP49)", "BTC SegWit (BIP84)",
+              "BTC Taproot (BIP86)", "Solana (Phantom)" };
+
+    // Which presets a recognized secret can wear: a mnemonic derives
+    // for every family, a secp256k1 key can dress as ETH or any BTC
+    // format (a WIF arrives in Bitcoin's own clothes, so ETH is not
+    // offered), and none of the key forms has a Solana self.
+    std::span<const keyd::DerivePreset> presets_for(crypto::SecretKind kind)
+    {
+        using P = keyd::DerivePreset;
+        static constexpr P kMnemonic[] = { P::MetaMask, P::LedgerLive,
+            P::LegacyMew, P::BtcLegacy, P::BtcNestedSegwit, P::BtcSegwit,
+            P::BtcTaproot, P::SolPhantom };
+        static constexpr P kRawKey[] = { P::MetaMask, P::BtcLegacy,
+            P::BtcNestedSegwit, P::BtcSegwit, P::BtcTaproot };
+        static constexpr P kWif[]
+            = { P::BtcLegacy, P::BtcNestedSegwit, P::BtcSegwit, P::BtcTaproot };
+        switch (kind) {
+        case crypto::SecretKind::Mnemonic:
+            return kMnemonic;
+        case crypto::SecretKind::RawKey:
+            return kRawKey;
+        case crypto::SecretKind::Wif:
+            return kWif;
+        case crypto::SecretKind::Unrecognized:
+            break;
+        }
+        return {};
+    }
 
     AccountsMeta read_meta_file(const std::filesystem::path& path)
     {
@@ -394,7 +424,6 @@ void VaultPage::enter_import_form()
     sodium_memzero(m_mnemonic_in.data(), m_mnemonic_in.size());
     m_detect = crypto::SecretKind::Unrecognized;
     m_preset_addrs = {};
-    m_detect_addr.clear();
     m_import_preset = 0;
     m_mode = Mode::ImportForm;
 }
@@ -406,25 +435,26 @@ void VaultPage::refresh_detect()
     const crypto::DetectedSecret hit = crypto::detect_secret(text);
     m_detect = hit.kind;
     m_preset_addrs = {};
-    m_detect_addr.clear();
-    if (hit.kind == crypto::SecretKind::Unrecognized)
+    const std::span<const keyd::DerivePreset> offered = presets_for(hit.kind);
+    if (offered.empty())
         return;
+    // A WIF's home format is native segwit; everything else defaults
+    // to the first offered preset.
+    m_import_preset = uint8_t(hit.kind == crypto::SecretKind::Wif
+            ? keyd::DerivePreset::BtcSegwit
+            : offered.front());
     // Address previews, derived right here in the UI: the person sees
     // where their money would live before anything touches disk. Runs
     // only when the text changes — a paste, not every frame.
     try {
         const vault::Wallet probe = wallet_of(hit, text);
-        if (hit.kind == crypto::SecretKind::Mnemonic) {
-            for (uint8_t p = 0; p < keyd::kDerivePresetCount; ++p)
-                m_preset_addrs[p]
-                    = keyd::account_address(probe, 0, keyd::DerivePreset(p));
-        } else {
-            m_detect_addr = keyd::account_address(probe);
-        }
+        for (const keyd::DerivePreset p : offered)
+            m_preset_addrs[uint8_t(p)] = keyd::account_address(probe, 0, p);
     } catch (const std::exception&) {
         // A secret that cannot even address itself is not that kind
         // of secret.
         m_detect = crypto::SecretKind::Unrecognized;
+        m_preset_addrs = {};
     }
 }
 
@@ -524,24 +554,24 @@ void VaultPage::draw_import_form(const i18n::Catalog& tr)
         ImGui::TextUnformatted(tr("vault.detect.none"));
         break;
     }
-    if (m_detect == crypto::SecretKind::Mnemonic) {
-        // One first address per derivation preset; picking the address
-        // picks the preset. At index 0 MetaMask and Ledger Live share
-        // a path, so two rows may show the same address — still two
-        // different wallets from account 1 on.
+    // One first address per preset this secret can wear, grouped by
+    // what it derives; picking the address picks the preset. At index
+    // 0 MetaMask and Ledger Live share a path, so two rows may show
+    // the same address — still two different wallets from account 1 on.
+    const std::span<const keyd::DerivePreset> offered = presets_for(m_detect);
+    if (!offered.empty()) {
         ImGui::TextDisabled("%s", tr("wallet.preset"));
-        for (uint8_t p = 0; p < keyd::kDerivePresetCount; ++p) {
-            ImGui::PushID(int(p));
-            if (ImGui::RadioButton("##preset", m_import_preset == p))
-                m_import_preset = p;
+        for (const keyd::DerivePreset p : offered) {
+            const uint8_t idx = uint8_t(p);
+            ImGui::PushID(int(idx));
+            if (ImGui::RadioButton("##preset", m_import_preset == idx))
+                m_import_preset = idx;
             ImGui::SameLine();
-            ImGui::TextUnformatted(kPresetNames[p]);
+            ImGui::TextUnformatted(kPresetNames[idx]);
             ImGui::SameLine();
-            ImGui::TextDisabled("%s", m_preset_addrs[p].c_str());
+            ImGui::TextDisabled("%s", m_preset_addrs[idx].c_str());
             ImGui::PopID();
         }
-    } else if (!m_detect_addr.empty()) {
-        ImGui::TextDisabled("%s", m_detect_addr.c_str());
     }
 
     ImGui::InputText(
@@ -568,8 +598,9 @@ void VaultPage::draw_import_form(const i18n::Catalog& tr)
         vault::Wallet wallet;
         if (recognized)
             wallet = wallet_of(hit, text);
-        const uint8_t preset
-            = hit.kind == crypto::SecretKind::Mnemonic ? m_import_preset : 0;
+        // refresh_detect keeps the selection inside the offered set for
+        // whatever the text currently is.
+        const uint8_t preset = m_import_preset;
 
         if (!valid_new_name(name)) {
             m_status = "wallet.err.name";
@@ -601,13 +632,20 @@ void VaultPage::draw_import_form(const i18n::Catalog& tr)
                             metaPath
                             = m_dir / (id + ".accounts.json")]() mutable {
                 try {
-                    // Prove the wallet can actually sign — on the very
-                    // path the chosen preset will use — before it is
-                    // allowed to exist; an out-of-range key or a broken
-                    // seed fails here, loudly and early.
+                    // Prove the wallet works before it is allowed to
+                    // exist: the chosen preset must derive an address
+                    // (an out-of-range key or a broken seed fails here,
+                    // loudly and early), and the secp256k1 material
+                    // must actually sign. Non-EVM presets have no
+                    // transaction engine yet, so their signing probe
+                    // runs on the default EVM path — same seed, same
+                    // scalar arithmetic.
+                    (void)keyd::account_address(
+                        wallet, 0, keyd::DerivePreset(preset));
                     const std::vector<uint8_t> probe { 0x69 };
-                    (void)keyd::sign_payload(
-                        wallet, probe, 0, keyd::DerivePreset(preset));
+                    if (keyd::preset_family(keyd::DerivePreset(preset))
+                        != keyd::ChainFamily::Sol)
+                        (void)keyd::sign_payload(wallet, probe);
                     vault::save(path, pass, wallet, vault::kdf_sensitive());
                     write_meta_file(metaPath, { name, 1, 0, preset });
                     job->phase.store(1);
@@ -697,7 +735,12 @@ void VaultPage::draw_unlocked(const i18n::Catalog& tr)
     // is what it is.
     const bool hd
         = m_keyd && m_keyd->wallet_kind() == keyd::RevealKind::SeedEntropy;
-    if (hd) {
+    // The scheme badge: always meaningful for an HD wallet; for a key
+    // wallet only when the preset names an address format (a vendor
+    // path label would be noise on a wallet that derives nothing).
+    if (hd
+        || keyd::preset_family(keyd::DerivePreset(m_preset))
+            != keyd::ChainFamily::Eth) {
         ImGui::TextDisabled("%s", tr("wallet.preset"));
         ImGui::SameLine();
         ImGui::TextUnformatted(kPresetNames[m_preset]);

@@ -325,6 +325,7 @@ add_executable(izan_tests
     tests/i18n_test.cpp
     tests/tx_test.cpp
     tests/txflow_test.cpp
+    tests/family_test.cpp
     tests/import_test.cpp
     tests/keyd_test.cpp
     tests/linkbits_test.cpp

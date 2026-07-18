@@ -79,6 +79,7 @@
     "vault.detect.wif": "WIF秘密鍵",
     "vault.detect.none": "認識できません",
     "wallet.preset": "導出方式：",
+    "send.err.family": "このウォレットは自身のチェーンで受け取れます。送金は現在 EVM のみ対応です。",
     "vault.warn.backup.key": "この秘密鍵を知っている人は誰でもこのウォレットの資産を動かせます。絶対に共有しないでください。",
     "wallet.account.add": "新しいアドレスを導出"
 }

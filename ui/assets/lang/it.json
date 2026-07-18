@@ -79,6 +79,7 @@
     "vault.detect.wif": "Chiave privata WIF",
     "vault.detect.none": "Non riconosciuto",
     "wallet.preset": "Derivazione:",
+    "send.err.family": "Questo portafoglio riceve sulla propria catena; l'invio per ora è solo EVM.",
     "vault.warn.backup.key": "Chiunque conosca questa chiave può spendere i fondi di questo portafoglio. Non condividerla mai.",
     "wallet.account.add": "Deriva nuovo indirizzo"
 }

@@ -79,6 +79,7 @@
     "vault.detect.wif": "WIF private key",
     "vault.detect.none": "Not recognized",
     "wallet.preset": "Derivation:",
+    "send.err.family": "This wallet receives on its own chain; sending is EVM-only for now.",
     "vault.warn.backup.key": "Anyone who knows this key can spend this wallet's funds. Never share it.",
     "wallet.account.add": "Derive new address"
 }

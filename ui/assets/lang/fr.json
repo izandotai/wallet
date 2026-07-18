@@ -79,6 +79,7 @@
     "vault.detect.wif": "Clé privée WIF",
     "vault.detect.none": "Non reconnu",
     "wallet.preset": "Dérivation :",
+    "send.err.family": "Ce portefeuille reçoit sur sa propre chaîne ; l'envoi est pour l'instant réservé aux EVM.",
     "vault.warn.backup.key": "Quiconque connaît cette clé peut dépenser les fonds de ce portefeuille. Ne la partagez jamais.",
     "wallet.account.add": "Dériver une nouvelle adresse"
 }

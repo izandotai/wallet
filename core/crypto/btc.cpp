@@ -6,26 +6,111 @@
 #include <sodium.h>
 
 extern "C" {
+// Upstream header trips C++20's volatile-parameter deprecation; not ours
+// to fix, not ours to drown in either.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wvolatile"
 #include <base58.h>
+#include <bignum.h>
+#include <ecdsa.h>
 #include <hasher.h>
 #include <ripemd160.h>
+#include <secp256k1.h>
 #include <segwit_addr.h>
 #include <sha2.h>
+#pragma GCC diagnostic pop
 }
 
 namespace izan::crypto {
 
+namespace {
+
+    std::array<uint8_t, 20> hash160(std::span<const uint8_t> bytes)
+    {
+        std::array<uint8_t, 32> sha;
+        sha256_Raw(bytes.data(), bytes.size(), sha.data());
+        std::array<uint8_t, 20> h160;
+        ripemd160(sha.data(), sha.size(), h160.data());
+        return h160;
+    }
+
+    std::string base58check_address(
+        uint8_t version, const std::array<uint8_t, 20>& h160)
+    {
+        std::array<uint8_t, 21> payload;
+        payload[0] = version;
+        std::memcpy(payload.data() + 1, h160.data(), h160.size());
+        char addr[40];
+        if (base58_encode_check(payload.data(), int(payload.size()),
+                HASHER_SHA2D, addr, sizeof addr)
+            <= 0)
+            return {};
+        return addr;
+    }
+
+}
+
 std::string btc_p2wpkh_address(
     std::span<const uint8_t, 33> pubkey, const char* hrp)
 {
-    // hash160 = ripemd160(sha256(pubkey)), the witness program.
-    std::array<uint8_t, 32> sha;
-    sha256_Raw(pubkey.data(), pubkey.size(), sha.data());
-    std::array<uint8_t, 20> h160;
-    ripemd160(sha.data(), sha.size(), h160.data());
-
+    // hash160 of the pubkey is the witness program.
+    const std::array<uint8_t, 20> h160 = hash160(pubkey);
     char addr[93];
     if (segwit_addr_encode(addr, hrp, 0, h160.data(), h160.size()) != 1)
+        return {};
+    return addr;
+}
+
+std::string btc_p2pkh_address(std::span<const uint8_t, 33> pubkey)
+{
+    return base58check_address(0x00, hash160(pubkey));
+}
+
+std::string btc_p2sh_p2wpkh_address(std::span<const uint8_t, 33> pubkey)
+{
+    // The redeem script is the P2WPKH output: OP_0 PUSH20 <hash160(pub)>.
+    std::array<uint8_t, 22> redeem { 0x00, 0x14 };
+    const std::array<uint8_t, 20> h160 = hash160(pubkey);
+    std::memcpy(redeem.data() + 2, h160.data(), h160.size());
+    return base58check_address(0x05, hash160(redeem));
+}
+
+std::string btc_p2tr_address(
+    std::span<const uint8_t, 33> pubkey, const char* hrp)
+{
+    // BIP-341 key-path-only output: the internal key is the x-only form
+    // of the pubkey (lifted to its even-y point), the tweak commits to
+    // an empty script tree, and the output key is P + tweak·G.
+    uint8_t even[33];
+    even[0] = 0x02;
+    std::memcpy(even + 1, pubkey.data() + 1, 32);
+    curve_point p;
+    if (!ecdsa_read_pubkey(&secp256k1, even, &p))
+        return {};
+
+    uint8_t tag[32];
+    static constexpr char kTag[] = "TapTweak";
+    sha256_Raw(reinterpret_cast<const uint8_t*>(kTag), sizeof kTag - 1, tag);
+    SHA256_CTX ctx;
+    sha256_Init(&ctx);
+    sha256_Update(&ctx, tag, sizeof tag);
+    sha256_Update(&ctx, tag, sizeof tag);
+    sha256_Update(&ctx, even + 1, 32);
+    uint8_t tweak[32];
+    sha256_Final(&ctx, tweak);
+
+    bignum256 t;
+    bn_read_be(tweak, &t);
+    if (!bn_is_less(&t, &secp256k1.order))
+        return {}; // 2^-128 territory; refuse rather than reduce
+
+    curve_point q;
+    scalar_multiply(&secp256k1, &t, &q);
+    point_add(&secp256k1, &p, &q);
+    uint8_t out[32];
+    bn_write_be(&q.x, out);
+    char addr[93];
+    if (segwit_addr_encode(addr, hrp, 1, out, sizeof out) != 1)
         return {};
     return addr;
 }
