@@ -379,14 +379,26 @@ void VaultPage::draw_unlocked(const i18n::Catalog& tr)
             m_job = job;
             keyd::KeydClient* keyd = &*m_keyd;
             std::thread([job, keyd, pass = std::move(pass)]() mutable {
-                auto entropy = keyd->reveal(pass);
-                if (!entropy) {
+                auto revealed = keyd->reveal(pass);
+                if (!revealed) {
                     job->error = keyd->last_error();
                     job->phase.store(2);
                     return;
                 }
                 try {
-                    job->secret = crypto::entropy_to_mnemonic(*entropy);
+                    if (revealed->kind == keyd::RevealKind::SeedEntropy) {
+                        job->secret
+                            = crypto::entropy_to_mnemonic(revealed->secret);
+                    } else {
+                        // Key-only wallet: the backup is the key
+                        // itself, shown as hex in guarded memory.
+                        SecureBytes hex(2 + revealed->secret.size() * 2 + 1);
+                        std::memcpy(hex.data(), "0x", 2);
+                        sodium_bin2hex(reinterpret_cast<char*>(hex.data()) + 2,
+                            hex.size() - 2, revealed->secret.data(),
+                            revealed->secret.size());
+                        job->secret = std::move(hex);
+                    }
                     job->phase.store(1);
                 } catch (const std::exception& e) {
                     job->error = e.what();

@@ -50,6 +50,19 @@ SecureBytes sb_from(std::string_view text)
     return out;
 }
 
+std::vector<uint8_t> unhex_local(std::string_view hex)
+{
+    auto nib = [](char c) -> uint8_t {
+        if (c >= '0' && c <= '9')
+            return uint8_t(c - '0');
+        return uint8_t(c - 'a' + 10);
+    };
+    std::vector<uint8_t> out;
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2)
+        out.push_back(uint8_t(nib(hex[i]) << 4 | nib(hex[i + 1])));
+    return out;
+}
+
 std::string recovered_signer(
     const ApprovedSignature& sig, const uint8_t digest[32])
 {
@@ -307,31 +320,50 @@ TEST_CASE("keyd proposals: submission, provenance, passphrase-gated verdicts")
     std::filesystem::remove(vaultPath + ".bak");
 }
 
-TEST_CASE("signer: seed to signature, straight through")
+TEST_CASE("signer: the wallet's contents choose the key")
 {
-    const SecureBytes entropy = izan::crypto::mnemonic_to_entropy(kDevMnemonic);
     const std::vector<uint8_t> payload { 0x02, 0xc0, 0xff, 0xee };
-
-    const SignedDigest out = sign_payload(entropy, payload);
-    CHECK(out.signer == kDevAccount0);
-
     uint8_t digest[32];
     keccak_256(payload.data(), payload.size(), digest);
-    CHECK(std::memcmp(out.digest.data(), digest, 32) == 0);
 
+    // Seed wallet: derive account #0.
+    izan::vault::Wallet seed;
+    seed.entropy = izan::crypto::mnemonic_to_entropy(kDevMnemonic);
+    const SignedDigest bySeed = sign_payload(seed, payload);
+    CHECK(bySeed.signer == kDevAccount0);
+    CHECK(std::memcmp(bySeed.digest.data(), digest, 32) == 0);
     ApprovedSignature wire;
-    wire.y_parity = out.sig.y_parity;
-    wire.r = out.sig.r;
-    wire.s = out.sig.s;
+    wire.y_parity = bySeed.sig.y_parity;
+    wire.r = bySeed.sig.r;
+    wire.s = bySeed.sig.s;
+    CHECK(recovered_signer(wire, digest) == kDevAccount0);
+    CHECK(account_address(seed) == kDevAccount0);
+
+    // Key-only wallet holding the same account's raw key: identical
+    // identity through the other path — no derivation involved.
+    izan::vault::Wallet keyed;
+    izan::vault::Imported imp;
+    imp.label = "dev";
+    const std::vector<uint8_t> raw = unhex_local(
+        "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+    imp.key = SecureBytes(32);
+    std::memcpy(imp.key.data(), raw.data(), 32);
+    keyed.imported.push_back(std::move(imp));
+    const SignedDigest byKey = sign_payload(keyed, payload);
+    CHECK(byKey.signer == kDevAccount0);
+    CHECK(account_address(keyed) == kDevAccount0);
+    wire.y_parity = byKey.sig.y_parity;
+    wire.r = byKey.sig.r;
+    wire.s = byKey.sig.s;
     CHECK(recovered_signer(wire, digest) == kDevAccount0);
 
-    CHECK(account_address(entropy) == kDevAccount0);
-
+    // An empty wallet has nothing to say.
     CHECK_THROWS_AS(
-        sign_payload(entropy, std::vector<uint8_t> {}), std::invalid_argument);
+        sign_payload(seed, std::vector<uint8_t> {}), std::invalid_argument);
     CHECK_THROWS_AS(
-        sign_payload(SecureBytes(), payload), std::invalid_argument);
-    CHECK_THROWS_AS(account_address(SecureBytes()), std::invalid_argument);
+        sign_payload(izan::vault::Wallet {}, payload), std::invalid_argument);
+    CHECK_THROWS_AS(
+        account_address(izan::vault::Wallet {}), std::invalid_argument);
 }
 
 TEST_CASE("keyd: the address answers only while unlocked")
@@ -360,12 +392,12 @@ TEST_CASE("keyd: the address answers only while unlocked")
     std::filesystem::remove(vaultPath + ".audit");
 }
 
-TEST_CASE("keyd proposals: a seedless vault approves nothing")
+TEST_CASE("keyd proposals: an empty vault approves nothing")
 {
-    // A vault holding only imported keys has no seed to derive from;
-    // approval must refuse — and crucially leave the proposal pending,
-    // not half-approved with no signature to show for it.
-    const std::string vaultPath = temp_file("proposals_seedless.qvlt");
+    // No seed, no keys: approval must refuse — and crucially leave the
+    // proposal pending, not half-approved with no signature to show
+    // for it.
+    const std::string vaultPath = temp_file("proposals_empty.qvlt");
     izan::vault::Wallet wallet;
     izan::vault::save(
         vaultPath, sb_from("correct horse"), wallet, izan::vault::kdf_min());
@@ -374,7 +406,7 @@ TEST_CASE("keyd proposals: a seedless vault approves nothing")
     auto id = keyd.submit_ui({ 't', 'x' });
     REQUIRE(id);
     CHECK(!keyd.approve(*id, sb_from("correct horse")));
-    CHECK(keyd.last_error() == "signer: vault holds no seed");
+    CHECK(keyd.last_error() == "signer: wallet holds no signing key");
     CHECK(query_state(keyd.pipe_name(), *id) == ProposalState::Pending);
 
     CHECK(keyd.shutdown());
@@ -384,6 +416,55 @@ TEST_CASE("keyd proposals: a seedless vault approves nothing")
 
     std::filesystem::remove(vaultPath);
     std::filesystem::remove(vaultPath + ".audit");
+}
+
+TEST_CASE("keyd proposals: a key-only wallet signs and reveals its key")
+{
+    const std::string vaultPath = temp_file("proposals_keyonly.qvlt");
+    izan::vault::Wallet wallet;
+    izan::vault::Imported imp;
+    imp.label = "dev";
+    const std::vector<uint8_t> raw = unhex_local(
+        "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+    imp.key = SecureBytes(32);
+    std::memcpy(imp.key.data(), raw.data(), 32);
+    wallet.imported.push_back(std::move(imp));
+    izan::vault::save(
+        vaultPath, sb_from("correct horse"), wallet, izan::vault::kdf_min());
+
+    KeydClient keyd = KeydClient::spawn(self_exe(), vaultPath);
+
+    // Address answers with the key's own identity while unlocked.
+    REQUIRE(keyd.unlock(sb_from("correct horse")));
+    auto addr = keyd.address();
+    REQUIRE(addr);
+    CHECK(*addr == kDevAccount0);
+
+    // Approval signs through the raw-key path.
+    const std::vector<uint8_t> payload { 'k', 'e', 'y' };
+    auto id = keyd.submit_ui(payload);
+    REQUIRE(id);
+    uint8_t digest[32];
+    keccak_256(payload.data(), payload.size(), digest);
+    auto sig = keyd.approve(*id, sb_from("correct horse"));
+    REQUIRE(sig);
+    CHECK(recovered_signer(*sig, digest) == kDevAccount0);
+
+    // Backup reveals the key itself, marked as such.
+    auto revealed = keyd.reveal(sb_from("correct horse"));
+    REQUIRE(revealed);
+    CHECK(revealed->kind == RevealKind::PrivateKey);
+    REQUIRE(revealed->secret.size() == 32);
+    CHECK(std::memcmp(revealed->secret.data(), raw.data(), 32) == 0);
+
+    CHECK(keyd.shutdown());
+    auto exit = keyd.wait_exit(5000);
+    REQUIRE(exit);
+    CHECK(*exit == 0);
+
+    std::filesystem::remove(vaultPath);
+    std::filesystem::remove(vaultPath + ".audit");
+    std::filesystem::remove(vaultPath + ".bak");
 }
 
 #endif

@@ -10,6 +10,7 @@
 
 #include "core/secure/secure_bytes.hpp"
 #include "keyd/proposals.hpp"
+#include "keyd/protocol.hpp"
 #include "platform/ipc/secret_channel.hpp"
 #include "platform/proc/child_process.hpp"
 
@@ -82,10 +83,17 @@ public:
     std::optional<ApprovedSignature> approve(
         uint64_t id, const secure::SecureBytes& passphrase);
     bool deny(uint64_t id);
-    // Backup: re-presents the passphrase, returns the BIP-39 entropy in
-    // guarded memory. nullopt carries the refusal in last_error().
-    std::optional<secure::SecureBytes> reveal(
-        const secure::SecureBytes& passphrase);
+
+    // Backup: re-presents the passphrase, returns the wallet's root
+    // secret in guarded memory — seed entropy for a seed wallet, the
+    // raw key for a key-only one. nullopt carries the refusal in
+    // last_error().
+    struct Revealed {
+        RevealKind kind = RevealKind::SeedEntropy;
+        secure::SecureBytes secret;
+    };
+
+    std::optional<Revealed> reveal(const secure::SecureBytes& passphrase);
 
     const std::string& last_error() const
     {

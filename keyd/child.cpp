@@ -329,7 +329,7 @@ int child_main(int argc, char** argv)
                 }
                 SignedDigest signature;
                 try {
-                    signature = sign_payload(opened->entropy, p->payload);
+                    signature = sign_payload(*opened, p->payload);
                 } catch (const std::exception& e) {
                     plane->audit.append(
                         "proposal.sign.fail id=" + std::to_string(id));
@@ -407,8 +407,7 @@ int child_main(int argc, char** argv)
                     break;
                 }
                 try {
-                    const std::string addr
-                        = account_address(holder->wallet->entropy);
+                    const std::string addr = account_address(*holder->wallet);
                     send_op(channel, Op::AddressIs,
                         reinterpret_cast<const uint8_t*>(addr.data()),
                         addr.size());
@@ -425,15 +424,20 @@ int child_main(int argc, char** argv)
                 try {
                     vault::Wallet opened = vault::open(vaultPath, pass);
                     badPass = 0;
-                    if (opened.entropy.empty()) {
-                        send_err(channel, "no seed in vault");
+                    const bool seed = !opened.entropy.empty();
+                    if (!seed && opened.imported.empty()) {
+                        send_err(channel, "empty wallet");
                         break;
                     }
-                    plane->audit.append("vault.reveal");
-                    std::vector<uint8_t> out(1 + opened.entropy.size());
-                    out[0] = uint8_t(Op::Entropy);
-                    std::memcpy(out.data() + 1, opened.entropy.data(),
-                        opened.entropy.size());
+                    const secure::SecureBytes& secret
+                        = seed ? opened.entropy : opened.imported.front().key;
+                    plane->audit.append(
+                        seed ? "vault.reveal.seed" : "vault.reveal.key");
+                    std::vector<uint8_t> out(2 + secret.size());
+                    out[0] = uint8_t(Op::RootSecret);
+                    out[1] = uint8_t(seed ? RevealKind::SeedEntropy
+                                          : RevealKind::PrivateKey);
+                    std::memcpy(out.data() + 2, secret.data(), secret.size());
                     channel.send(out.data(), out.size());
                     sodium_memzero(out.data(), out.size());
                 } catch (const std::exception&) {

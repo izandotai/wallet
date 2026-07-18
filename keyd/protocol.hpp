@@ -24,9 +24,10 @@ enum class Op : uint8_t {
     Deny = 0x06,    // body: u64-LE proposal id
     Pending = 0x07, // body: empty
     Fetch = 0x08,   // body: u64-LE proposal id
-    // Backup shows the human their recovery phrase — the most
+    // Backup shows the human their wallet's root secret — the most
     // dangerous read in the system, so it spends the passphrase like
-    // an approval does.
+    // an approval does. What comes back depends on what the wallet is:
+    // seed wallets reveal their entropy, key-only wallets their key.
     Reveal = 0x09, // body: passphrase bytes
     // The wallet's own receive/sender address. Public data, but only
     // derivable from the seed, so it answers only while unlocked —
@@ -40,9 +41,15 @@ enum class Op : uint8_t {
     State = 0x43,       // body: 0 = locked, 1 = unlocked
     PendingList = 0x44, // body: repeated { u64-LE id, u8 provenance }
     ProposalBody = 0x45, // body: u8 provenance, then payload bytes
-    Entropy = 0x46,      // body: BIP-39 entropy bytes (16/32)
+    RootSecret = 0x46,   // body: kind(1) — see RevealKind — then bytes
     Signed = 0x47,       // body: y_parity(1) || r(32) || s(32)
     AddressIs = 0x48,    // body: utf-8 EIP-55 address
+};
+
+// First byte of a RootSecret body.
+enum class RevealKind : uint8_t {
+    SeedEntropy = 0, // BIP-39 entropy (16/32); regenerate the mnemonic
+    PrivateKey = 1,  // raw secp256k1 key (32)
 };
 
 inline constexpr std::size_t kSignedBodyBytes = 65;

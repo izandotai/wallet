@@ -217,10 +217,11 @@ TEST_CASE("keyd child: reveal spends the passphrase and returns the entropy")
     CHECK(!keyd.reveal(sb_from("wrong pass")));
     CHECK(keyd.last_error() == "bad passphrase");
 
-    auto entropy = keyd.reveal(sb_from("correct horse"));
-    REQUIRE(entropy);
-    REQUIRE(entropy->size() == 16);
-    CHECK(std::memcmp(entropy->data(), expect, 16) == 0);
+    auto revealed = keyd.reveal(sb_from("correct horse"));
+    REQUIRE(revealed);
+    CHECK(revealed->kind == izan::keyd::RevealKind::SeedEntropy);
+    REQUIRE(revealed->secret.size() == 16);
+    CHECK(std::memcmp(revealed->secret.data(), expect, 16) == 0);
 
     CHECK(keyd.shutdown());
     auto exit = keyd.wait_exit(5000);

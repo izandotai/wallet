@@ -227,7 +227,8 @@ std::optional<ApprovedSignature> KeydClient::approve(
     return sig;
 }
 
-std::optional<SecureBytes> KeydClient::reveal(const SecureBytes& passphrase)
+std::optional<KeydClient::Revealed> KeydClient::reveal(
+    const SecureBytes& passphrase)
 {
     std::vector<uint8_t> frame(1 + passphrase.size());
     frame[0] = uint8_t(Op::Reveal);
@@ -239,13 +240,15 @@ std::optional<SecureBytes> KeydClient::reveal(const SecureBytes& passphrase)
         m_last_error = "channel broken";
         return std::nullopt;
     }
-    if (reply->data()[0] != uint8_t(Op::Entropy)) {
+    if (reply->data()[0] != uint8_t(Op::RootSecret) || reply->size() < 3) {
         m_last_error.assign(reinterpret_cast<const char*>(reply->data()) + 1,
             reply->size() - 1);
         return std::nullopt;
     }
-    SecureBytes out(reply->size() - 1);
-    std::memcpy(out.data(), reply->data() + 1, out.size());
+    Revealed out;
+    out.kind = RevealKind(reply->data()[1]);
+    out.secret = SecureBytes(reply->size() - 2);
+    std::memcpy(out.secret.data(), reply->data() + 2, out.secret.size());
     return out;
 }
 
