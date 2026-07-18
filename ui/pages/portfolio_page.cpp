@@ -94,10 +94,18 @@ void PortfolioPage::refresh(const std::string& address)
                 row.symbol = h.symbol;
                 row.ok = h.ok;
                 row.testnet = h.testnet;
-                if (h.ok)
-                    row.amount = units::format_units(h.amount, h.decimals);
-                else
+                if (h.ok) {
+                    // Fiat math reads the exact figure; the row shows
+                    // the trimmed one — an 18-digit tail bursts rows.
+                    const std::string full
+                        = units::format_units(h.amount, h.decimals);
+                    std::from_chars(
+                        full.data(), full.data() + full.size(), row.approx);
+                    row.amount
+                        = units::format_units_display(h.amount, h.decimals);
+                } else {
                     row.error = h.error;
+                }
                 job->rows.push_back(std::move(row));
             }
             // Per-row fiat is garnish over the on-chain numbers: a
@@ -122,12 +130,7 @@ void PortfolioPage::refresh(const std::string& address)
                         = prices.find(assets::coingecko_id(row.symbol));
                     if (hit == prices.end())
                         continue;
-                    double amount = 0.0;
-                    const auto [end, ec] = std::from_chars(row.amount.data(),
-                        row.amount.data() + row.amount.size(), amount);
-                    if (ec != std::errc())
-                        continue;
-                    row.fiat = format_usd(amount * hit->second);
+                    row.fiat = format_usd(row.approx * hit->second);
                 }
             } catch (const std::exception&) {
             }

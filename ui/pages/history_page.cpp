@@ -85,8 +85,9 @@ void HistoryPage::refresh(const std::string& address)
                 row.failed = t.rec.failed;
                 row.note = t.chain->name + " · " + moment_of(t.rec.time);
                 row.amount = (t.rec.incoming ? "+" : "−")
-                    + units::format_units(t.rec.value, t.chain->decimals) + " "
-                    + t.chain->symbol;
+                    + units::format_units_display(
+                        t.rec.value, t.chain->decimals)
+                    + " " + t.chain->symbol;
                 if (!t.chain->explorer.empty())
                     row.link = t.chain->explorer + "/tx/" + row.hash;
                 job->rows.push_back(std::move(row));

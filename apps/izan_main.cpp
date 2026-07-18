@@ -363,6 +363,17 @@ int main(int argc, char** argv)
             ui::dock_ledger_import({}); // the old anchors died with the tree
             apply_dock_template(dockspace, dock_size, pending_layout);
         }
+        // A window added in a newer build floats over a layout saved
+        // by an older one; adopt the ledger into the assets shelf,
+        // where the templates would have put it.
+        static bool adopted = false;
+        if (!adopted && dock_frame == 2 && !settings.layout.empty()) {
+            adopted = true;
+            ImGuiWindow* ledger = ImGui::FindWindowByName("###history-page");
+            ImGuiWindow* shelf = ImGui::FindWindowByName("###portfolio-page");
+            if (ledger && shelf && ledger->DockId == 0 && shelf->DockId != 0)
+                ImGui::DockBuilderDockWindow("###history-page", shelf->DockId);
+        }
         static int dump_frame = 0;
         ++dump_frame;
         if ((dump_frame == 3 || dump_frame == 240)

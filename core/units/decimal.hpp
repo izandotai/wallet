@@ -35,6 +35,33 @@ inline std::string format_units(const U256& amount, unsigned decimals)
     return whole + "." + frac;
 }
 
+// Display form: at most max_frac fractional digits — full precision
+// belongs to reviews and receipts, not to list rows, where an
+// 18-digit tail bursts the layout. A nonzero amount that would trim
+// to nothing shows "<0.000001" instead of lying with a zero.
+inline std::string format_units_display(
+    const U256& amount, unsigned decimals, unsigned max_frac = 6)
+{
+    const std::string full = format_units(amount, decimals);
+    std::string s = full;
+    const std::size_t dot = s.find('.');
+    if (dot == std::string::npos)
+        return s;
+    if (s.size() - dot - 1 > max_frac)
+        s.resize(dot + 1 + max_frac);
+    while (s.back() == '0')
+        s.pop_back();
+    if (s.back() == '.')
+        s.pop_back();
+    if (s == "0" && full != "0") {
+        std::string floor_str = "<0.";
+        floor_str.append(max_frac - 1, '0');
+        floor_str += "1";
+        return floor_str;
+    }
+    return s;
+}
+
 // "1.5", 18 → 1500000000000000000. Strict: digits and at most one dot,
 // a digit on each side of it, no more fractional digits than the token
 // carries (never silently round user input), no signs, no whitespace.

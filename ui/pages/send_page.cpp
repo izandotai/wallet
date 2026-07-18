@@ -541,7 +541,8 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         const units::U256 fee_max
             = m_tx.max_fee_per_gas.checked_mul_u64(m_tx.gas_limit);
         const std::string fee
-            = units::format_units(fee_max, chain.decimals) + " " + chain.symbol;
+            = units::format_units_display(fee_max, chain.decimals) + " "
+            + chain.symbol;
 
         row(tr("send.from"), m_vault.active_name() + " · " + m_from);
         row(tr("send.to"), m_to_checked);
@@ -550,7 +551,7 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         // cannot — the amount and the fee live in different units.
         if (!m_token_send) {
             const std::string total
-                = units::format_units(
+                = units::format_units_display(
                       m_tx.value.checked_add(fee_max), chain.decimals)
                 + " " + chain.symbol;
             row(tr("send.total_max"), "≤ " + total);

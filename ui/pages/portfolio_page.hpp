@@ -43,8 +43,9 @@ private:
         uint64_t chain_id = 0;
         std::string chain;
         std::string symbol;
-        std::string amount; // formatted; empty when !ok
-        std::string fiat;   // "$123.45"; empty when unpriced or testnet
+        std::string amount;  // display-trimmed; empty when !ok
+        double approx = 0.0; // full-precision read, for the fiat line
+        std::string fiat;    // "$123.45"; empty when unpriced or testnet
         std::string error;
         bool ok = false;
         bool testnet = false;

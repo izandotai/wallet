@@ -137,3 +137,19 @@ TEST_CASE("parse_units accepts exact amounts and nothing else")
     CHECK_THROWS_AS(parse_units("0.1234567", 6), std::invalid_argument);
     CHECK_THROWS_AS(parse_units("0.1", 0), std::invalid_argument);
 }
+
+TEST_CASE("display trim keeps rows honest and narrow")
+{
+    using izan::units::format_units_display;
+    using izan::units::U256;
+    // 0.0015641589756589 ETH-style tails cut to six places…
+    CHECK(format_units_display(U256::from_dec("1564158975658990"), 18)
+        == "0.001564");
+    // …trailing zeros still drop…
+    CHECK(format_units_display(U256::from_dec("1500000000000000000"), 18)
+        == "1.5");
+    CHECK(format_units_display(U256::from_dec("2000000"), 6) == "2");
+    // …and dust admits it exists instead of printing zero.
+    CHECK(format_units_display(U256::from_dec("42"), 18) == "<0.000001");
+    CHECK(format_units_display(U256 {}, 18) == "0");
+}
