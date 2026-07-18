@@ -304,6 +304,8 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
 
     ImGui::Begin((std::string(tr("vault.title")) + "###vault-page").c_str());
 
+    m_secret_focus = false; // the secret inputs below re-mark it
+
     if (m_mode == Mode::Locked || m_mode == Mode::Unlocked)
         draw_selector(tr);
 
@@ -335,14 +337,12 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     }
 
     // Secret fields and the IME cannot coexist: composition strings
-    // are cached outside the process. Track whether any secret field
-    // is active this frame and detach/reattach on the transition.
-    const bool secret_active = ImGui::GetIO().WantTextInput
-        && (m_mode == Mode::CreateForm || m_mode == Mode::ImportForm
-            || m_mode == Mode::Locked || m_mode == Mode::Unlocked);
-    if (secret_active != m_ime_disabled) {
-        set_ime_enabled(window, !secret_active);
-        m_ime_disabled = secret_active;
+    // are cached outside the process. Field-level, not mode-level:
+    // only passphrase/secret inputs mark the frame — the wallet name
+    // is ordinary text and CJK input must keep working there.
+    if (m_secret_focus != m_ime_disabled) {
+        set_ime_enabled(window, !m_secret_focus);
+        m_ime_disabled = m_secret_focus;
     }
 
     ImGui::End();
@@ -406,8 +406,10 @@ void VaultPage::draw_create_form(const i18n::Catalog& tr)
     ImGui::InputText(tr("wallet.name"), m_name.data(), m_name.size());
     ImGui::InputText(
         tr("vault.passphrase"), m_pass.data(), m_pass.size(), kSecretField);
+    m_secret_focus |= ImGui::IsItemActive();
     ImGui::InputText(tr("vault.passphrase.confirm"), m_confirm.data(),
         m_confirm.size(), kSecretField);
+    m_secret_focus |= ImGui::IsItemActive();
 
     const bool busy = m_job != nullptr;
     ImGui::BeginDisabled(busy);
@@ -473,10 +475,13 @@ void VaultPage::draw_import_form(const i18n::Catalog& tr)
     ImGui::TextUnformatted(tr("vault.secret_in"));
     ImGui::InputTextMultiline("##secret-in", m_mnemonic_in.data(),
         m_mnemonic_in.size(), ImVec2(-1.0f, ImGui::GetTextLineHeight() * 4));
+    m_secret_focus |= ImGui::IsItemActive();
     ImGui::InputText(
         tr("vault.passphrase"), m_pass.data(), m_pass.size(), kSecretField);
+    m_secret_focus |= ImGui::IsItemActive();
     ImGui::InputText(tr("vault.passphrase.confirm"), m_confirm.data(),
         m_confirm.size(), kSecretField);
+    m_secret_focus |= ImGui::IsItemActive();
 
     const bool busy = m_job != nullptr;
     ImGui::BeginDisabled(busy);
@@ -583,6 +588,7 @@ void VaultPage::draw_locked(const i18n::Catalog& tr)
     ImGui::TextDisabled("%s", tr("vault.state.locked"));
     ImGui::InputText(
         tr("vault.passphrase"), m_pass.data(), m_pass.size(), kSecretField);
+    m_secret_focus |= ImGui::IsItemActive();
 
     const bool busy = m_job != nullptr;
     ImGui::BeginDisabled(busy);
@@ -664,6 +670,7 @@ void VaultPage::draw_unlocked(const i18n::Catalog& tr)
     // Backup spends the passphrase again — the field below feeds it.
     ImGui::InputText(
         tr("vault.passphrase"), m_pass.data(), m_pass.size(), kSecretField);
+    m_secret_focus |= ImGui::IsItemActive();
     if (ImGui::Button(tr("vault.backup"))) {
         if (strnlen(m_pass.data(), m_pass.size()) == 0) {
             m_status = "vault.msg.empty_pass";

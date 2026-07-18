@@ -147,6 +147,7 @@ private:
     std::optional<keyd::KeydClient> m_keyd;
     std::shared_ptr<Job> m_job;
     bool m_ime_disabled = false;
+    bool m_secret_focus = false; // a secret field is active this frame
 };
 
 }
