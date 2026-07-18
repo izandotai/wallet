@@ -75,14 +75,17 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
     // New and Import live at the bottom of the pane, stacked full
     // width — side by side they overflow a narrow sidebar — with the
     // accent fill marking the primary of the pair.
-    // Two buttons, the gap between them, and the gap the spacer item
-    // itself adds — undercounting that last one pushes the import
-    // button into the window edge and clips it shorter.
+    // Two buttons, their gaps, the spacer items' own gaps, and a
+    // fixed breath between the list and the buttons — undercounting
+    // any of it pushes the import button into the window edge and
+    // clips it shorter.
+    const float breath = ImGui::GetFontSize() * 0.75f;
     const float footer = ImGui::GetFrameHeight() * 2.0f
-        + ImGui::GetStyle().ItemSpacing.y * 2.0f;
+        + ImGui::GetStyle().ItemSpacing.y * 3.0f + breath;
     const float slack = ImGui::GetContentRegionAvail().y - footer;
     if (slack > 0.0f)
         ImGui::Dummy(ImVec2(0.0f, slack));
+    ImGui::Dummy(ImVec2(0.0f, breath));
     const float bw = ImGui::GetContentRegionAvail().x;
     if (kit_primary_button(tr("vault.create"), bw))
         ev.type = Event::Type::Create;

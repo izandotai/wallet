@@ -221,6 +221,13 @@ bool draw_window_control_button(
     const float stroke = 2.0f;
 
     switch (icon) {
+    case WindowControlIcon::Center:
+        // A desktop with the window sitting in its middle.
+        draw_list->AddRect(ImVec2(cx - 10.0f, cy - 8.0f),
+            ImVec2(cx + 10.0f, cy + 8.0f), color, 0.0f, 0, stroke);
+        draw_list->AddRectFilled(
+            ImVec2(cx - 4.0f, cy - 3.0f), ImVec2(cx + 4.0f, cy + 3.0f), color);
+        break;
     case WindowControlIcon::Minimize:
         draw_list->AddLine(ImVec2(cx - 9.0f, cy + 7.0f),
             ImVec2(cx + 9.0f, cy + 7.0f), color, stroke);
@@ -431,7 +438,7 @@ void draw_custom_title_bar(GLFWwindow* window, ChromeState& app,
     const float slider_width = 112.0f;
     const float opacity_label_width = ImGui::CalcTextSize("opacity").x;
     const float window_buttons_width
-        = button_width * 3.0f + style.ItemSpacing.x * 2.0f;
+        = button_width * 4.0f + style.ItemSpacing.x * 3.0f;
     const float opacity_width = slider_width + style.ItemSpacing.x
         + opacity_label_width + style.ItemSpacing.x;
     const bool show_opacity = title_size.x >= 900.0f;
@@ -486,6 +493,16 @@ void draw_custom_title_bar(GLFWwindow* window, ChromeState& app,
         ImGui::TextDisabled("opacity");
         ImGui::SameLine();
     }
+    // Center-on-desktop: a placement verb, not a native caption role —
+    // no hit-region registration, plain imgui click handling.
+    if (draw_window_control_button("##window-center",
+            ImVec2(button_width, button_height), WindowControlIcon::Center))
+        center_window_on_work_area(window);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+        queue_simple_tooltip(app, "Center",
+            ImVec2(ImGui::GetItemRectMin().x + button_width * 0.5f,
+                ImGui::GetItemRectMax().y + 8.0f));
+    ImGui::SameLine();
     if (draw_window_control_button("##window-minimize",
             ImVec2(button_width, button_height), WindowControlIcon::Minimize))
         glfwIconifyWindow(window);

@@ -13,8 +13,12 @@ namespace {
     {
         if (width != 0.0f)
             return width;
-        const float natural = ImGui::CalcTextSize(label).x
-            + ImGui::GetStyle().FramePadding.x * 2.0f;
+        // Capsule ends eat into the text visually; pill mode grants
+        // the label more air than the theme's frame padding does.
+        const float pad_x = design().button_pill
+            ? ImGui::GetFontSize() * design().button_pad_x_em
+            : ImGui::GetStyle().FramePadding.x;
+        const float natural = ImGui::CalcTextSize(label).x + pad_x * 2.0f;
         const float floor_w = ImGui::GetFontSize() * design().button_min_em;
         return natural < floor_w ? floor_w : natural;
     }

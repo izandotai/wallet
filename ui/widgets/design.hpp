@@ -48,9 +48,10 @@ struct DesignLanguage {
     // -- buttons --
     // Shape and finish are tokens, not code: flip these to restyle
     // every button in the app at once.
-    bool button_pill = true;    // capsule ends (full-round sides)
-    float button_gloss = 0.55f; // 0..1 metallic top-light overlay
-    float button_min_em = 4.5f; // auto-width floor: no squat capsules
+    bool button_pill = true;      // capsule ends (full-round sides)
+    float button_gloss = 0.55f;   // 0..1 metallic top-light overlay
+    float button_min_em = 4.5f;   // auto-width floor: no squat capsules
+    float button_pad_x_em = 1.1f; // pill text inset — round ends need air
 
     // -- material & light --
     float group_elevation_dark = 0.045f; // card bg lift toward text

@@ -249,6 +249,8 @@ void update_title_bar_button_hit_region(GLFWwindow* window,
 
     RECT rect = client_rect_to_screen(hwnd, min, max);
     switch (icon) {
+    case WindowControlIcon::Center:
+        break; // a placement verb, not a native caption button
     case WindowControlIcon::Minimize:
         g_title_bar_minimize_rect = rect;
         break;
