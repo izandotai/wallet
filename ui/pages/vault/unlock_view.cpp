@@ -50,7 +50,7 @@ UnlockView::Event UnlockView::draw(const i18n::Catalog& tr, bool busy,
     centered(col);
     ImGui::SetNextItemWidth(col);
     if (m_focus_pending && !busy) {
-        ImGui::SetKeyboardFocusHere();
+        kit_focus_here();
         m_focus_pending = false;
     }
     submit |= secret_field(

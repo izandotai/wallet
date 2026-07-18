@@ -75,15 +75,18 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
         ImGui::PopID();
     }
 
-    // New and Import live at the bottom of the pane, out of the way.
-    const float footer = em * 2.2f;
+    // New and Import live at the bottom of the pane, stacked full
+    // width — side by side they overflow a narrow sidebar — with the
+    // accent fill marking the primary of the pair.
+    const float footer
+        = ImGui::GetFrameHeight() * 2.0f + ImGui::GetStyle().ItemSpacing.y;
     const float slack = ImGui::GetContentRegionAvail().y - footer;
     if (slack > 0.0f)
         ImGui::Dummy(ImVec2(0.0f, slack));
-    if (kit_subtle_button(tr("vault.create")))
+    const float bw = ImGui::GetContentRegionAvail().x;
+    if (kit_primary_button(tr("vault.create"), bw))
         ev.type = Event::Type::Create;
-    ImGui::SameLine();
-    if (kit_subtle_button(tr("vault.import")))
+    if (kit_subtle_button(tr("vault.import"), bw))
         ev.type = Event::Type::Import;
 
     // Dialogs are opened outside the card loop so their ids are stable.

@@ -37,13 +37,10 @@ bool kit_list_row(const char* id, const char* title, const char* subtitle,
         has_subtitle ? pos.y + em * 0.28f : pos.y + (row_h - em) * 0.5f);
     draw->AddText(
         ImVec2(text_x, name_y), ImGui::GetColorU32(ImGuiCol_Text), title);
-    if (has_subtitle) {
-        ImGui::PushFont(nullptr, kit_caption_size());
+    if (has_subtitle)
         draw->AddText(ImGui::GetFont(), kit_caption_size(),
             ImVec2(text_x, kit_snap(name_y + em * 1.05f)),
             ImGui::GetColorU32(ImGuiCol_TextDisabled), subtitle);
-        ImGui::PopFont();
-    }
 
     const ImVec2 dot(pos.x + row_w - em * 0.7f, pos.y + row_h * 0.5f);
     if (active_dot)

@@ -143,7 +143,7 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
             "🔒", tr("vault.backup"), tr("vault.warn.backup"));
         kit_dialog_field_width();
         if (m_focus_backup) {
-            ImGui::SetKeyboardFocusHere();
+            kit_focus_here();
             m_focus_backup = false;
         }
         const bool enter = secret_field(

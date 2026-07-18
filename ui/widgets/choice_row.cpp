@@ -54,17 +54,21 @@ bool kit_choice_row(const char* id, const char* label,
     if (trailing_caption && *trailing_caption) {
         // The caption keeps clear of the label — elided before it may
         // ever overlap, with a breath of space guaranteed between.
+        // Measured and drawn at one explicit size: mixing font
+        // contexts is how right edges go ragged.
+        const float cap = kit_caption_size();
         const float label_end = label_x + ImGui::CalcTextSize(label).x;
         const float budget = pos.x + row_w - label_end - em * 0.8f;
-        ImGui::PushFont(nullptr, kit_caption_size());
-        const std::string text
-            = budget > 0.0f ? kit_elide_middle(trailing_caption, budget) : "";
-        const float w = ImGui::CalcTextSize(text.c_str()).x;
-        draw->AddText(ImGui::GetFont(), kit_caption_size(),
+        const std::string text = budget > 0.0f
+            ? kit_elide_middle(trailing_caption, budget, cap)
+            : "";
+        const float w = ImGui::GetFont()
+                            ->CalcTextSizeA(cap, FLT_MAX, 0.0f, text.c_str())
+                            .x;
+        draw->AddText(ImGui::GetFont(), cap,
             ImVec2(kit_snap(pos.x + row_w - w),
-                kit_snap(pos.y + (row_h - kit_caption_size()) * 0.5f)),
+                kit_snap(pos.y + (row_h - cap) * 0.5f)),
             ImGui::GetColorU32(ImGuiCol_TextDisabled), text.c_str());
-        ImGui::PopFont();
     }
     return clicked;
 }

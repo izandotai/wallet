@@ -7,18 +7,74 @@
 #include "ui/shell/chrome_state.hpp"
 #include "ui/shell/chrome_widgets.hpp"
 #include "ui/shell/constants.hpp"
+#include "ui/shell/fonts.hpp"
 #include "ui/shell/ime.hpp"
 #include "ui/shell/theme.hpp"
 #include "ui/shell/ui_layout.hpp"
 #include "ui/widgets/kit.hpp"
 
 #include <array>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <vector>
 
+#include <glaze/glaze.hpp>
 #include <imgui.h>
 
 #include <GLFW/glfw3.h>
 
 namespace {
+
+// The harness remembers its theme and layout like the wallet does —
+// a design-review surface that resets every launch reviews nothing.
+struct SmokeSettings {
+    int theme_index = 0;
+    int window_w = 0;
+    int window_h = 0;
+    bool window_maximized = false;
+    std::string layout;
+    std::vector<float> dock_panes;
+};
+
+std::filesystem::path smoke_settings_path()
+{
+    if (const char* appdata = std::getenv("APPDATA")) {
+        const auto dir = std::filesystem::path(appdata) / "izan";
+        std::error_code ec;
+        std::filesystem::create_directories(dir, ec);
+        if (!ec)
+            return dir / "smoke.settings.json";
+    }
+    return izan::ui::executable_dir() / "smoke.settings.json";
+}
+
+SmokeSettings load_smoke_settings()
+{
+    SmokeSettings s;
+    std::ifstream f(smoke_settings_path(), std::ios::binary);
+    if (f) {
+        std::ostringstream ss;
+        ss << f.rdbuf();
+        SmokeSettings parsed;
+        if (!glz::read<glz::opts { .error_on_unknown_keys = false }>(
+                parsed, ss.str()))
+            s = parsed;
+    }
+    if (s.theme_index < 0 || s.theme_index >= int(izan::ui::kThemeNames.size()))
+        s.theme_index = 0;
+    return s;
+}
+
+void save_smoke_settings(const SmokeSettings& s)
+{
+    std::string out;
+    if (glz::write<glz::opts { .prettify = true }>(s, out))
+        return;
+    std::ofstream f(smoke_settings_path(), std::ios::binary | std::ios::trunc);
+    f << out;
+}
 
 void draw_placeholder_pane(const char* name, const char* line)
 {
@@ -46,6 +102,10 @@ void draw_kit_gallery()
     bool secret_focus = false;
     const float em = ImGui::GetFontSize();
 
+    // Screenshot rig: IZAN_GALLERY_SCROLL=<px> parks the page at a
+    // given scroll offset so any section can be captured unattended.
+    if (const char* jump = std::getenv("IZAN_GALLERY_SCROLL"))
+        ImGui::SetNextWindowScroll(ImVec2(0.0f, float(atof(jump))));
     ImGui::Begin("Components");
 
     kit_title("Components");
@@ -106,9 +166,8 @@ void draw_kit_gallery()
     kit_vspace();
 
     kit_heading("粘贴框 paste_box");
-    kit_group_begin("##sec-paste");
-    kit_paste_box("##paste", paste.data(), paste.size(), 3.0f, secret_focus);
-    kit_group_end();
+    kit_paste_box("##paste", "粘贴助记词、私钥或 WIF", paste.data(),
+        paste.size(), 3.0f, secret_focus);
     kit_vspace();
 
     kit_heading("账户行 selection_mark · copy_text · 余额列 · QR");
@@ -254,6 +313,22 @@ int main()
     izan::ui::ChromeState chrome;
     bool show_demo = false;
 
+    SmokeSettings settings = load_smoke_settings();
+    chrome.theme_index = settings.theme_index;
+    izan::ui::apply_theme_style_only(settings.theme_index);
+    izan::ui::LayoutKeeper keeper;
+    keeper.restore(app.window(),
+        { settings.window_w, settings.window_h, settings.window_maximized,
+            settings.layout, settings.dock_panes });
+    const auto merge = [&](const izan::ui::LayoutState& u) {
+        settings.window_w = u.window_w;
+        settings.window_h = u.window_h;
+        settings.window_maximized = u.window_maximized;
+        settings.layout = u.layout;
+        settings.dock_panes = u.dock_panes;
+        settings.theme_index = chrome.theme_index;
+    };
+
     app.set_render_callback([&] {
         app.begin_frame();
 
@@ -324,11 +399,18 @@ int main()
         }
         izan::ui::update_ime_position(app.window(), nullptr);
 
+        keeper.update(app.window(), dockspace, [&](const auto& u) {
+            merge(u);
+            save_smoke_settings(settings);
+        });
+
         if (chrome.request_exit)
             glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
 
         app.end_frame(izan::ui::theme_clear_color(chrome));
     });
     app.run();
+    merge(keeper.final_state());
+    save_smoke_settings(settings);
     return 0;
 }

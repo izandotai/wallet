@@ -21,12 +21,18 @@ bool kit_text_field(
 bool secret_field(const char* label, std::array<char, 256>& buf,
     bool& secret_focus, const char* hint = nullptr);
 
-// The paste box for secrets-in-transit (mnemonics, keys): multiline,
-// IME-detached while focused. Returns true when the text changed.
-bool kit_paste_box(const char* id, char* buf, std::size_t size, float rows,
-    bool& secret_focus);
+// The paste box for secrets-in-transit (mnemonics, keys): a rounded
+// text area with its own quiet fill and hairline border, a hint while
+// empty, IME-detached while focused. Returns true when the text
+// changed.
+bool kit_paste_box(const char* id, const char* hint, char* buf,
+    std::size_t size, float rows, bool& secret_focus);
 
 // Moves the buffer contents into guarded memory and wipes the buffer.
 secure::SecureBytes take_secret(std::array<char, 256>& buf);
+
+// Programmatic focus for the next field — without the keyboard-nav
+// cursor ring that SetKeyboardFocusHere would paint around it.
+void kit_focus_here();
 
 }

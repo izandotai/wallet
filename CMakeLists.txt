@@ -339,7 +339,8 @@ if(IZAN_BUILD_UI AND WIN32)
     # launched from a terminal, try_attach_parent_console re-plumbs
     # stdout/stderr back to it.
     add_executable(izan_ui_smoke WIN32 ui/smoke_main.cpp)
-    target_link_libraries(izan_ui_smoke PRIVATE izan_ui_shell izan_kit)
+    target_link_libraries(
+        izan_ui_smoke PRIVATE izan_ui_shell izan_kit glaze::glaze)
     izan_ui_copy_assets(izan_ui_smoke)
 
     # The wallet. One binary, two personalities (UI / --keyd-child).

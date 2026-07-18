@@ -57,16 +57,14 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
     kit_vspace(0.4f);
 
     if (m_step == Step::Paste) {
-        kit_group_begin("##paste");
         if (m_focus_pending && !busy) {
-            ImGui::SetKeyboardFocusHere();
+            kit_focus_here();
             m_focus_pending = false;
         }
-        if (kit_paste_box("##secret-in", m_secret_in.data(), m_secret_in.size(),
-                4.0f, secret_focus))
+        if (kit_paste_box("##secret-in", tr("vault.secret_in"),
+                m_secret_in.data(), m_secret_in.size(), 4.0f, secret_focus))
             m_model.update(std::string_view(m_secret_in.data(),
                 strnlen(m_secret_in.data(), m_secret_in.size())));
-        kit_group_end();
         kit_vspace(0.2f);
 
         // The recognition line: what the pasted text is, updated as it
@@ -119,25 +117,21 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
     kit_caption(m_model.preview(chosen).c_str());
     kit_vspace(0.4f);
 
-    const float form_avail = ImGui::GetContentRegionAvail().x - em * 1.4f;
+    const float form_avail = ImGui::GetContentRegionAvail().x;
     const float col = em * design().form_width < form_avail
         ? em * design().form_width
         : form_avail;
-    kit_group_begin("##import-fields", col + em * 1.2f);
     ImGui::SetNextItemWidth(col);
     if (m_focus_pending && !busy) {
-        ImGui::SetKeyboardFocusHere();
+        kit_focus_here();
         m_focus_pending = false;
     }
-    ImGui::InputTextWithHint(
-        "##name", tr("wallet.name"), m_name.data(), m_name.size());
-    kit_hairline();
+    kit_text_field("##name", tr("wallet.name"), m_name.data(), m_name.size());
     ImGui::SetNextItemWidth(col);
     secret_field("##pass", m_pass, secret_focus, tr("vault.passphrase"));
     ImGui::SetNextItemWidth(col);
     bool submit = secret_field(
         "##confirm", m_confirm, secret_focus, tr("vault.passphrase.confirm"));
-    kit_group_end();
     kit_vspace(0.5f);
 
     ImGui::BeginDisabled(busy);

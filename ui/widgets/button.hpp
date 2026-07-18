@@ -8,7 +8,7 @@ namespace izan::ui {
 // The screen's one obvious action: accent-filled.
 bool kit_primary_button(const char* label, float width = 0.0f);
 // Quiet neighbor of a primary action: the theme's own button.
-bool kit_subtle_button(const char* label);
+bool kit_subtle_button(const char* label, float width = 0.0f);
 // Destructive: red fill, same shape as primary.
 bool kit_danger_button(const char* label, float width = 0.0f);
 // An action that reads as text: accent-colored label, no fill until

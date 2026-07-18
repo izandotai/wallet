@@ -22,28 +22,24 @@ CreateView::Event CreateView::draw(const i18n::Catalog& tr, bool busy,
 {
     Event ev;
     const float em = ImGui::GetFontSize();
-    const float avail = ImGui::GetContentRegionAvail().x - em * 1.4f;
+    const float avail = ImGui::GetContentRegionAvail().x;
     const float col
         = em * design().form_width < avail ? em * design().form_width : avail;
 
     kit_title(tr("vault.create"));
     kit_vspace(0.5f);
 
-    kit_group_begin("##create-fields", col + em * 1.2f);
     ImGui::SetNextItemWidth(col);
     if (m_focus_pending && !busy) {
-        ImGui::SetKeyboardFocusHere();
+        kit_focus_here();
         m_focus_pending = false;
     }
-    ImGui::InputTextWithHint(
-        "##name", tr("wallet.name"), m_name.data(), m_name.size());
-    kit_hairline();
+    kit_text_field("##name", tr("wallet.name"), m_name.data(), m_name.size());
     ImGui::SetNextItemWidth(col);
     secret_field("##pass", m_pass, secret_focus, tr("vault.passphrase"));
     ImGui::SetNextItemWidth(col);
     bool submit = secret_field(
         "##confirm", m_confirm, secret_focus, tr("vault.passphrase.confirm"));
-    kit_group_end();
     kit_vspace(0.5f);
 
     ImGui::BeginDisabled(busy);

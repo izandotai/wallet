@@ -33,9 +33,9 @@ bool kit_danger_button(const char* label, float width)
     return filled_button(label, width, kit_danger());
 }
 
-bool kit_subtle_button(const char* label)
+bool kit_subtle_button(const char* label, float width)
 {
-    return ImGui::Button(label);
+    return ImGui::Button(label, ImVec2(width, 0.0f));
 }
 
 bool kit_link_button(const char* label)

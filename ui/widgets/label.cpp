@@ -47,9 +47,16 @@ void kit_vspace(float em)
     ImGui::Dummy(ImVec2(0.0f, ImGui::GetFontSize() * em));
 }
 
-std::string kit_elide_middle(const char* text, float budget)
+std::string kit_elide_middle(const char* text, float budget, float font_size)
 {
-    if (ImGui::CalcTextSize(text).x <= budget)
+    const auto measure = [&](const char* s) {
+        if (font_size > 0.0f)
+            return ImGui::GetFont()
+                ->CalcTextSizeA(font_size, FLT_MAX, 0.0f, s)
+                .x;
+        return ImGui::CalcTextSize(s).x;
+    };
+    if (measure(text) <= budget)
         return text;
     const std::size_t len = std::strlen(text);
     const std::size_t tail = len < 6 ? len : 6;
@@ -57,7 +64,7 @@ std::string kit_elide_middle(const char* text, float budget)
         std::string out(text, head);
         out += "…";
         out.append(text + len - tail, tail);
-        if (ImGui::CalcTextSize(out.c_str()).x <= budget)
+        if (measure(out.c_str()) <= budget)
             return out;
     }
     std::string out(text, 4);

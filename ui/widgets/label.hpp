@@ -18,7 +18,10 @@ void kit_vspace(float em = 0.5f);   // vertical breath between blocks
 
 // Middle elision to a pixel budget: keep both ends — the parts a
 // person actually compares — and give up the middle. ASCII-safe
-// slicing; measure with the font that will draw the result.
-std::string kit_elide_middle(const char* text, float budget);
+// slicing. font_size = 0 measures at the current size; pass an
+// explicit size when the result will be drawn at one — measuring in
+// one font context and drawing in another is how text goes ragged.
+std::string kit_elide_middle(
+    const char* text, float budget, float font_size = 0.0f);
 
 }
