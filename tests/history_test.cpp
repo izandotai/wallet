@@ -59,3 +59,30 @@ TEST_CASE("txlist oddities")
     CHECK(rows[0].hash == "0xeee");
     CHECK(rows[0].incoming);
 }
+
+TEST_CASE("tokentx rows carry the token's own identity")
+{
+    const auto rows = izan::assets::parse_tokentx(
+        R"({"status":"1","result":[
+        {"hash":"0x111","from":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+         "to":"0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+         "value":"25000000","timeStamp":"1789000300",
+         "tokenSymbol":"USDC","tokenDecimal":"6"},
+        {"hash":"0x222","from":"0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+         "to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+         "value":"5","timeStamp":"1789000400",
+         "tokenSymbol":"","tokenDecimal":"18"},
+        {"hash":"0x333","from":"0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+         "to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+         "value":"7","timeStamp":"1789000500",
+         "tokenSymbol":"WEIRD","tokenDecimal":"99"}
+    ]})",
+        kSelf);
+    // The nameless transfer and the impossible-decimals one are turned
+    // away; the USDC row arrives whole.
+    REQUIRE(rows.size() == 1);
+    CHECK(rows[0].token_symbol == "USDC");
+    CHECK(rows[0].token_decimals == 6);
+    CHECK(rows[0].incoming);
+    CHECK_FALSE(rows[0].failed);
+}

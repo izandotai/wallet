@@ -4,6 +4,7 @@
 #include <chrono>
 #include <format>
 #include <fstream>
+#include <set>
 #include <sstream>
 #include <thread>
 
@@ -59,15 +60,33 @@ void HistoryPage::refresh(const std::string& address)
                 const chains::ChainSpec* chain;
             };
             std::vector<Tagged> merged;
+            std::set<std::string> token_hashes;
             // Chains answer independently; one silent instance must
-            // not blank the others' ledgers.
+            // not blank the others' ledgers. Token transfers land
+            // first so their hashes can silence the empty native
+            // shells of the same transactions.
             for (const chains::ChainSpec& chain : chains) {
                 if (chain.history.empty())
                     continue;
                 try {
                     for (assets::TxRecord& rec :
-                        assets::fetch_history(chain, address))
+                        assets::fetch_token_history(chain, address)) {
+                        token_hashes.insert(rec.hash);
                         merged.push_back({ std::move(rec), &chain });
+                    }
+                } catch (const std::exception&) {
+                }
+                try {
+                    for (assets::TxRecord& rec :
+                        assets::fetch_history(chain, address)) {
+                        // A token send's outer transaction is a
+                        // zero-value call on the contract; the
+                        // transfer row already tells the story.
+                        if (rec.value.to_dec() == "0"
+                            && token_hashes.contains(rec.hash))
+                            continue;
+                        merged.push_back({ std::move(rec), &chain });
+                    }
                 } catch (const std::exception&) {
                 }
             }
@@ -84,10 +103,11 @@ void HistoryPage::refresh(const std::string& address)
                 row.incoming = t.rec.incoming;
                 row.failed = t.rec.failed;
                 row.note = t.chain->name + " · " + moment_of(t.rec.time);
+                const bool token = !t.rec.token_symbol.empty();
                 row.amount = (t.rec.incoming ? "+" : "−")
-                    + units::format_units_display(
-                        t.rec.value, t.chain->decimals)
-                    + " " + t.chain->symbol;
+                    + units::format_units_display(t.rec.value,
+                        token ? t.rec.token_decimals : t.chain->decimals)
+                    + " " + (token ? t.rec.token_symbol : t.chain->symbol);
                 if (!t.chain->explorer.empty())
                     row.link = t.chain->explorer + "/tx/" + row.hash;
                 job->rows.push_back(std::move(row));
