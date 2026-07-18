@@ -15,4 +15,9 @@ bool kit_danger_button(const char* label, float width = 0.0f);
 // hovered — for "add another" rows and friends.
 bool kit_link_button(const char* label);
 
+// The width a kit button will actually occupy — centering math must
+// ask this, not CalcTextSize: the auto-width floor makes the render
+// wider than the label.
+float kit_button_width(const char* label, float width = 0.0f);
+
 }

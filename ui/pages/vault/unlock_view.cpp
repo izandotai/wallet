@@ -58,9 +58,11 @@ UnlockView::Event UnlockView::draw(const i18n::Catalog& tr, bool busy,
     kit_vspace(0.25f);
 
     ImGui::BeginDisabled(busy);
-    // The button spans the field above it — one column, one axis.
-    centered(col);
-    submit |= kit_primary_button(tr("vault.unlock"), col);
+    // A compact pill on the field's axis — neither a squat blob nor a
+    // bar as long as the field.
+    const float button_w = em * 7.0f;
+    centered(button_w);
+    submit |= kit_primary_button(tr("vault.unlock"), button_w);
     if (submit) {
         if (strnlen(m_pass.data(), m_pass.size()) == 0) {
             ev.err = "vault.msg.empty_pass";

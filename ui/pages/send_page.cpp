@@ -82,20 +82,13 @@ namespace {
         ImGui::PopFont();
     }
 
-    // For machine-made messages (node errors) that can run to any
-    // length: wrapped into the column as a paragraph — reading beats
-    // squinting at one elided line.
-    void wrapped_caption(const char* text, float left_x, float width)
+    // Machine-made messages (node errors) wear the footnote voice:
+    // oblique fine print, generously inset from both edges.
+    void error_note(const char* text, float left_x, float width)
     {
-        ImGui::PushFont(nullptr, kit_caption_size());
-        ImGui::SetCursorPosX(left_x);
-        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width);
-        ImGui::PushStyleColor(
-            ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-        ImGui::TextUnformatted(text);
-        ImGui::PopStyleColor();
-        ImGui::PopTextWrapPos();
-        ImGui::PopFont();
+        const float inset = ImGui::GetFontSize() * 1.1f;
+        ImGui::SetCursorPosX(left_x + inset);
+        kit_footnote(text, width - inset * 2.0f);
     }
 
 }
@@ -296,9 +289,8 @@ void SendPage::draw_form(const i18n::Catalog& tr)
 
     if (m_stage == Stage::Form && !m_status.empty()) {
         kit_vspace(0.25f);
-        wrapped_caption(
-            m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(), left,
-            col);
+        error_note(m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(),
+            left, col);
     }
 }
 
@@ -512,7 +504,7 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         const bool submitted = secret_field(
             "##send-pass", m_pass, m_secret_focus, tr("send.passphrase"));
         if (!m_status.empty()) {
-            wrapped_caption(
+            error_note(
                 m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(),
                 ImGui::GetCursorPosX(), content);
         }
@@ -560,7 +552,7 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         } else {
             centered_caption(tr("send.failed"));
             if (!m_status.empty())
-                wrapped_caption(
+                error_note(
                     m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(),
                     ImGui::GetCursorPosX(), content);
         }

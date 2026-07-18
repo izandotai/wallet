@@ -118,4 +118,77 @@ void kit_caption_fit(const char* text, float budget)
     ImGui::PopFont();
 }
 
+void kit_footnote(const char* text, float width)
+{
+    const float size = kit_caption_size();
+    ImFont* font = ImGui::GetFont();
+    const float line_h = kit_snap(size * 1.45f);
+    const float slant = 0.18f;
+    const float wrap_w = width - size * slant;
+    if (wrap_w <= size)
+        return;
+
+    auto width_of = [&](const std::string& s) {
+        return font->CalcTextSizeA(size, FLT_MAX, 0.0f, s.c_str()).x;
+    };
+    // Greedy word wrap; an unbroken run — a hex address — splits by
+    // character, cutting only on UTF-8 codepoint boundaries.
+    std::vector<std::string> lines;
+    std::string cur;
+    auto flush = [&] {
+        if (!cur.empty()) {
+            lines.push_back(cur);
+            cur.clear();
+        }
+    };
+    const std::string all(text);
+    std::size_t i = 0;
+    while (i < all.size()) {
+        std::size_t j = all.find(' ', i);
+        if (j == std::string::npos)
+            j = all.size();
+        std::string word = all.substr(i, j - i);
+        i = j + 1;
+        while (width_of(word) > wrap_w) {
+            flush();
+            std::size_t k = word.size();
+            while (k > 1
+                && (width_of(word.substr(0, k)) > wrap_w
+                    || (word[k] & 0xC0) == 0x80))
+                --k;
+            lines.push_back(word.substr(0, k));
+            word = word.substr(k);
+        }
+        const std::string cand = cur.empty() ? word : cur + " " + word;
+        if (width_of(cand) <= wrap_w)
+            cur = cand;
+        else {
+            flush();
+            cur = word;
+        }
+    }
+    flush();
+    if (lines.empty())
+        return;
+
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(width, float(lines.size()) * line_h));
+    const ImU32 color = ImGui::GetColorU32(ImGuiCol_TextDisabled);
+    float y = origin.y;
+    for (const std::string& line : lines) {
+        const int v0 = draw->VtxBuffer.Size;
+        draw->AddText(font, size, ImVec2(kit_snap(origin.x), kit_snap(y)),
+            color, line.c_str());
+        // The oblique: shear every glyph vertex around the line's
+        // baseline — the top of each letter leans right.
+        const float base = y + size;
+        for (int v = v0; v < draw->VtxBuffer.Size; ++v) {
+            ImDrawVert& vert = draw->VtxBuffer.Data[v];
+            vert.pos.x += (base - vert.pos.y) * slant;
+        }
+        y += line_h;
+    }
+}
+
 }

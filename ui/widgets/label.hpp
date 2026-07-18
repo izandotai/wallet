@@ -34,4 +34,10 @@ std::string kit_elide_end(
 // strings from other machines get long, and long must stay readable.
 void kit_caption_fit(const char* text, float budget);
 
+// Fine print: a muted, oblique, word-wrapped block for machine-made
+// messages — node errors, diagnostics. The slant is sheared onto the
+// glyphs at draw time; no italic file lives in the font waterfall.
+// Draws at the cursor, wraps to `width`, advances the layout.
+void kit_footnote(const char* text, float width);
+
 }

@@ -112,6 +112,11 @@ bool kit_subtle_button(const char* label, float width)
     return clicked;
 }
 
+float kit_button_width(const char* label, float width)
+{
+    return resolved_width(label, width);
+}
+
 bool kit_link_button(const char* label)
 {
     ImGui::PushStyleColor(ImGuiCol_Text, kit_accent());
