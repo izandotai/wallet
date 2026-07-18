@@ -10,6 +10,9 @@
 #include "ui/shell/ime.hpp"
 #include "ui/shell/theme.hpp"
 #include "ui/shell/ui_layout.hpp"
+#include "ui/widgets/kit.hpp"
+
+#include <array>
 
 #include <imgui.h>
 
@@ -22,6 +25,94 @@ void draw_placeholder_pane(const char* name, const char* line)
     ImGui::Begin(name);
     ImGui::TextUnformatted(line);
     ImGui::TextDisabled("中文渲染 ✓  emoji 🎨🔑💰  symbols ★◆①");
+    ImGui::End();
+}
+
+// The kit gallery: every component of the widget library on one page,
+// with fake data — the design-review surface. Layout regressions get
+// caught here, by eye, without unlocking anything.
+void draw_kit_gallery()
+{
+    using namespace izan::ui;
+    static std::array<std::array<char, 48>, 3> notes {};
+    static int account = 0;
+    static int preset = 0;
+    static bool toggled = true;
+    static std::array<char, 48> name {};
+    static std::array<char, 256> pass {};
+    bool secret_focus = false;
+    const float em = ImGui::GetFontSize();
+
+    ImGui::Begin("Kit");
+
+    kit_title("账户");
+    kit_vspace(0.15f);
+    kit_group_begin("##acc");
+    static const char* kAddrs[3]
+        = { "CNLDm8FPe7HMVnvuNy287zUHjqYtQGnPJgxSup2LMJzD",
+              "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+              "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu" };
+    for (int i = 0; i < 3; ++i) {
+        ImGui::PushID(i);
+        if (i > 0)
+            kit_hairline();
+        ImGui::AlignTextToFramePadding();
+        if (kit_selection_mark("##sel", i == account))
+            account = i;
+        ImGui::SameLine(em * 1.6f);
+        ImGui::PushFont(nullptr, kit_caption_size());
+        ImGui::Text("#%d", i);
+        ImGui::PopFont();
+        ImGui::SameLine(em * 3.2f);
+        ImGui::SetNextItemWidth(em * 6.0f);
+        kit_text_field("##note", "备注", notes[i].data(), notes[i].size());
+        ImGui::SameLine();
+        kit_copy_text_right("##addr", kAddrs[i], "复制", "已复制");
+        ImGui::PopID();
+    }
+    kit_hairline();
+    kit_link_button("+ 派生新地址");
+    kit_group_end();
+    kit_vspace();
+
+    kit_heading("选择行");
+    kit_group_begin("##choices");
+    if (kit_choice_row("##c0", "MetaMask", "0xd8dA6BF2…A96045", preset == 0))
+        preset = 0;
+    kit_hairline();
+    if (kit_choice_row(
+            "##c1", "BTC SegWit (BIP84)", "bc1qcr8te4k…306fyu", preset == 1))
+        preset = 1;
+    kit_group_end();
+    kit_vspace();
+
+    kit_heading("控件");
+    kit_subtle_button("取消");
+    ImGui::SameLine();
+    kit_primary_button("确认");
+    ImGui::SameLine();
+    kit_danger_button("删除");
+    ImGui::SameLine();
+    kit_link_button("链接动作");
+    ImGui::SameLine();
+    kit_toggle("##t", &toggled);
+    ImGui::SameLine();
+    kit_spinner();
+    ImGui::SameLine();
+    kit_step_dots(1, 3);
+    kit_pill("HD 钱包", kit_accent());
+    ImGui::SameLine();
+    kit_pill("已锁定", ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+    ImGui::SameLine();
+    kit_avatar("老干妈?", em * 1.7f);
+    kit_vspace();
+
+    kit_heading("表单");
+    ImGui::SetNextItemWidth(em * 10.0f);
+    kit_text_field("##name", "钱包名称", name.data(), name.size());
+    ImGui::SetNextItemWidth(em * 10.0f);
+    secret_field("##pass", pass, secret_focus, "口令");
+
     ImGui::End();
 }
 
@@ -94,8 +185,7 @@ int main()
         ImGui::PopStyleVar();
 
         draw_placeholder_pane("Portfolio", "watch-only balances land here");
-        draw_placeholder_pane(
-            "Vault", "create / import / unlock flows land here");
+        draw_kit_gallery();
 
         if (show_demo)
             ImGui::ShowDemoWindow(&show_demo);

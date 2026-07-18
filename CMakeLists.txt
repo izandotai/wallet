@@ -296,25 +296,10 @@ if(IZAN_BUILD_UI AND WIN32)
             COMMENT "Copying ui assets for ${target}")
     endfunction()
 
-    # WIN32 = windows subsystem: no console flashes up on double-click;
-    # launched from a terminal, try_attach_parent_console re-plumbs
-    # stdout/stderr back to it.
-    add_executable(izan_ui_smoke WIN32 ui/smoke_main.cpp)
-    target_link_libraries(izan_ui_smoke PRIVATE izan_ui_shell)
-    izan_ui_copy_assets(izan_ui_smoke)
-
-    # The wallet. One binary, two personalities (UI / --keyd-child).
-    add_executable(izan WIN32
-        apps/izan_main.cpp
-        ui/pages/portfolio_page.cpp
-        ui/pages/send_page.cpp
-        ui/pages/vault_page.cpp
-        ui/pages/vault/accounts_view.cpp
-        ui/pages/vault/create_view.cpp
-        ui/pages/vault/import_view.cpp
-        ui/pages/vault/list_view.cpp
-        ui/pages/vault/secret_view.cpp
-        ui/pages/vault/unlock_view.cpp
+    # The kit: izan's own widget library — every component drawn in the
+    # active design language. Its own library so the smoke harness can
+    # host a component gallery without dragging the wallet in.
+    add_library(izan_kit STATIC
         ui/widgets/avatar.cpp
         ui/widgets/button.cpp
         ui/widgets/card.cpp
@@ -334,9 +319,32 @@ if(IZAN_BUILD_UI AND WIN32)
         ui/widgets/toggle.cpp
         ui/widgets/tooltip.cpp
     )
-    target_link_libraries(izan PRIVATE izan_ui_shell izan_i18n izan_keyd
-        izan_wallet_ui izan_crypto izan_secure izan_domain izan_units
-        glaze::glaze)
+    target_include_directories(izan_kit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(izan_kit PUBLIC izan_imgui izan_secure)
+
+    # WIN32 = windows subsystem: no console flashes up on double-click;
+    # launched from a terminal, try_attach_parent_console re-plumbs
+    # stdout/stderr back to it.
+    add_executable(izan_ui_smoke WIN32 ui/smoke_main.cpp)
+    target_link_libraries(izan_ui_smoke PRIVATE izan_ui_shell izan_kit)
+    izan_ui_copy_assets(izan_ui_smoke)
+
+    # The wallet. One binary, two personalities (UI / --keyd-child).
+    add_executable(izan WIN32
+        apps/izan_main.cpp
+        ui/pages/portfolio_page.cpp
+        ui/pages/send_page.cpp
+        ui/pages/vault_page.cpp
+        ui/pages/vault/accounts_view.cpp
+        ui/pages/vault/create_view.cpp
+        ui/pages/vault/import_view.cpp
+        ui/pages/vault/list_view.cpp
+        ui/pages/vault/secret_view.cpp
+        ui/pages/vault/unlock_view.cpp
+    )
+    target_link_libraries(izan PRIVATE izan_ui_shell izan_kit izan_i18n
+        izan_keyd izan_wallet_ui izan_crypto izan_secure izan_domain
+        izan_units glaze::glaze)
     izan_ui_copy_assets(izan)
     add_custom_command(TARGET izan POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory

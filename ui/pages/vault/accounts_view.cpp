@@ -9,19 +9,6 @@
 
 namespace izan::ui {
 
-namespace {
-
-    // 0x1234567…abcdef — enough of each end to recognize, hover for
-    // the whole thing.
-    std::string shortened(const std::string& addr)
-    {
-        if (addr.size() <= 20)
-            return addr;
-        return addr.substr(0, 10) + "…" + addr.substr(addr.size() - 6);
-    }
-
-}
-
 void AccountsView::reset()
 {
     sodium_memzero(m_pass.data(), m_pass.size());
@@ -69,7 +56,7 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
         ImGui::PopFont();
 
         ImGui::SameLine(em * 3.2f);
-        ImGui::SetNextItemWidth(em * 7.0f);
+        ImGui::SetNextItemWidth(em * 6.0f);
         kit_text_field("##note", tr("wallet.note"), m_labels[i].data(),
             m_labels[i].size());
         if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -79,11 +66,11 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
                 strnlen(m_labels[i].data(), m_labels[i].size()));
         }
 
-        // Address: middle-shortened, right-aligned to the row's edge,
-        // click to copy — the confirmation takes the address's place.
+        // Address: right-aligned to the row's edge, middle-elided to
+        // whatever space the row leaves, click to copy — the
+        // confirmation takes the address's place.
         ImGui::SameLine();
-        const std::string& full = addresses[std::size_t(i)];
-        kit_copy_text_right("##addr", shortened(full).c_str(), full.c_str(),
+        kit_copy_text_right("##addr", addresses[std::size_t(i)].c_str(),
             tr("ui.copy"), tr("ui.copied"));
         ImGui::PopID();
     }

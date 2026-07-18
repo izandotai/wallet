@@ -11,15 +11,21 @@ namespace {
 
     void draw_mark(ImDrawList* draw, ImVec2 center, float em, bool selected)
     {
+        const float r = em * 0.28f;
         if (selected) {
-            draw->AddCircleFilled(
-                center, em * 0.28f, ImGui::GetColorU32(kit_accent()));
-            draw->AddText(ImGui::GetFont(), kit_caption_size(),
-                ImVec2(center.x - em * 0.17f, center.y - em * 0.44f),
-                IM_COL32(255, 255, 255, 240), "✓");
+            draw->AddCircleFilled(center, r, ImGui::GetColorU32(kit_accent()));
+            // The check is drawn, not typed — a "✓" glyph would come
+            // out of the emoji font, colored and oversized.
+            const ImVec2 tick[3] = {
+                ImVec2(center.x - r * 0.50f, center.y + r * 0.05f),
+                ImVec2(center.x - r * 0.10f, center.y + r * 0.45f),
+                ImVec2(center.x + r * 0.55f, center.y - r * 0.40f),
+            };
+            draw->AddPolyline(tick, 3, IM_COL32(255, 255, 255, 245),
+                ImDrawFlags_RoundCornersAll, r * 0.28f);
         } else {
-            draw->AddCircle(center, em * 0.28f,
-                ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.6f));
+            draw->AddCircle(
+                center, r, ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.6f));
         }
     }
 
