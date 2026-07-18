@@ -47,4 +47,13 @@ std::vector<TxRecord> fetch_history(
 std::vector<TxRecord> fetch_token_history(
     const chains::ChainSpec& chain, const std::string& address);
 
+// Both pages over one keep-alive connection — the endpoints share a
+// host, and the callers always want the pair.
+struct Ledger {
+    std::vector<TxRecord> native;
+    std::vector<TxRecord> tokens;
+};
+
+Ledger fetch_ledger(const chains::ChainSpec& chain, const std::string& address);
+
 }

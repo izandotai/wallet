@@ -324,6 +324,8 @@ void VaultPage::fetch_balances(int only_index)
             job->phase.store(1);
         } catch (const std::exception&) {
             job->phase.store(2);
+        } catch (...) {
+            job->phase.store(2); // never let a thread kill the wallet
         }
     }).detach();
 }
@@ -407,6 +409,9 @@ void VaultPage::start_create(CreateView::Event ev)
         } catch (const std::exception& e) {
             job->error = e.what();
             job->phase.store(2);
+        } catch (...) {
+            job->error = "worker failed";
+            job->phase.store(2);
         }
     }).detach();
 }
@@ -445,6 +450,9 @@ void VaultPage::start_import(ImportView::Event ev)
             job->phase.store(1);
         } catch (const std::exception& e) {
             job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            job->error = "worker failed";
             job->phase.store(2);
         }
     }).detach();
@@ -520,6 +528,9 @@ void VaultPage::start_backup(SecureBytes pass)
             job->phase.store(1);
         } catch (const std::exception& e) {
             job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            job->error = "worker failed";
             job->phase.store(2);
         }
     }).detach();

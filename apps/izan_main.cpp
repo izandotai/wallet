@@ -12,6 +12,9 @@
 
 #include <glaze/glaze.hpp>
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>        // the crash black box below
+
 #include <imgui.h>
 #include <imgui_internal.h> // DockBuilder: the first-run layout
 
@@ -196,12 +199,40 @@ std::string self_exe_path()
     return (ui::executable_dir() / std::filesystem::path("izan.exe")).string();
 }
 
+// The crash black box: a hardware fault is not a C++ exception and no
+// catch will see it — this filter writes the exception code, faulting
+// address and module base to crash.txt on the way down, enough to map
+// against a symbolized build afterwards. GUI process only; the keyd
+// child keeps its deliberate WER exclusion untouched.
+std::wstring g_crash_path;
+
+LONG WINAPI crash_black_box(EXCEPTION_POINTERS* xp)
+{
+    const HANDLE f = CreateFileW(g_crash_path.c_str(), GENERIC_WRITE, 0,
+        nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f != INVALID_HANDLE_VALUE) {
+        char line[256];
+        const EXCEPTION_RECORD* r = xp->ExceptionRecord;
+        const int n = wsprintfA(line, "code=0x%08lx addr=%p base=%p tid=%lu",
+            r->ExceptionCode, r->ExceptionAddress,
+            static_cast<void*>(GetModuleHandleW(nullptr)),
+            GetCurrentThreadId());
+        DWORD written = 0;
+        WriteFile(f, line, DWORD(n), &written, nullptr);
+        CloseHandle(f);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 }
 
 int main(int argc, char** argv)
 {
     if (argc > 1 && std::string_view(argv[1]) == "--keyd-child")
         return keyd::child_main(argc, argv);
+
+    g_crash_path = (state_dir() / "crash.txt").wstring();
+    SetUnhandledExceptionFilter(crash_black_box);
 
     Settings settings = load_settings();
 

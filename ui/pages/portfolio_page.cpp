@@ -138,6 +138,10 @@ void PortfolioPage::refresh(const std::string& address)
         } catch (const std::exception& e) {
             job->error = e.what();
             job->phase.store(2);
+        } catch (...) {
+            // Anything escaping a detached thread is process death.
+            job->error = "worker failed";
+            job->phase.store(2);
         }
     }).detach();
 }

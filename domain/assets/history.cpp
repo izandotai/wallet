@@ -105,11 +105,10 @@ std::vector<TxRecord> parse_tokentx(
 
 namespace {
 
-    std::string fetch_page(const chains::ChainSpec& chain,
-        const std::string& action, const std::string& address)
+    std::string fetch_page(net::HttpsClient& client,
+        const chains::ChainSpec& chain, const std::string& action,
+        const std::string& address)
     {
-        const net::HttpsUrl base = net::parse_https_url(chain.history);
-        net::HttpsClient client(base.host, base.port);
         const std::string target = "/api?module=account&action=" + action
             + "&address=" + address + "&sort=desc&page=1&offset=25";
         const net::HttpResponse res
@@ -127,7 +126,9 @@ std::vector<TxRecord> fetch_history(
 {
     if (chain.history.empty())
         return {};
-    return parse_txlist(fetch_page(chain, "txlist", address), address);
+    const net::HttpsUrl base = net::parse_https_url(chain.history);
+    net::HttpsClient client(base.host, base.port);
+    return parse_txlist(fetch_page(client, chain, "txlist", address), address);
 }
 
 std::vector<TxRecord> fetch_token_history(
@@ -135,7 +136,24 @@ std::vector<TxRecord> fetch_token_history(
 {
     if (chain.history.empty())
         return {};
-    return parse_tokentx(fetch_page(chain, "tokentx", address), address);
+    const net::HttpsUrl base = net::parse_https_url(chain.history);
+    net::HttpsClient client(base.host, base.port);
+    return parse_tokentx(
+        fetch_page(client, chain, "tokentx", address), address);
+}
+
+Ledger fetch_ledger(const chains::ChainSpec& chain, const std::string& address)
+{
+    Ledger out;
+    if (chain.history.empty())
+        return out;
+    const net::HttpsUrl base = net::parse_https_url(chain.history);
+    net::HttpsClient client(base.host, base.port);
+    out.tokens
+        = parse_tokentx(fetch_page(client, chain, "tokentx", address), address);
+    out.native
+        = parse_txlist(fetch_page(client, chain, "txlist", address), address);
+    return out;
 }
 
 }

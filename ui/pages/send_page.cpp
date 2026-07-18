@@ -404,6 +404,10 @@ void SendPage::begin_review()
         } catch (const std::exception& e) {
             job->error = e.what();
             job->phase.store(2);
+        } catch (...) {
+            // Anything escaping a detached thread is process death.
+            job->error = "worker failed";
+            job->phase.store(2);
         }
     }).detach();
 }
@@ -468,6 +472,10 @@ void SendPage::confirm_send()
                                      "check the explorer before retrying");
         } catch (const std::exception& e) {
             job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            // Anything escaping a detached thread is process death.
+            job->error = "worker failed";
             job->phase.store(2);
         }
     }).detach();

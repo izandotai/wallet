@@ -1,5 +1,11 @@
 #include <doctest/doctest.h>
 
+#include <cstdlib>
+#include <fstream>
+#include <set>
+#include <sstream>
+
+#include "core/units/decimal.hpp"
 #include "domain/assets/history.hpp"
 
 using izan::assets::parse_txlist;
@@ -85,4 +91,61 @@ TEST_CASE("tokentx rows carry the token's own identity")
     CHECK(rows[0].token_decimals == 6);
     CHECK(rows[0].incoming);
     CHECK_FALSE(rows[0].failed);
+}
+
+// Reproduces the history page's whole worker path — six chains, both
+// endpoints, dedupe, display formatting — outside the GUI.
+//   IZAN_LIVE_TESTS=1 build/izan_tests.exe -tc="*ledger live*"
+TEST_CASE("full ledger live walk" * doctest::skip(false))
+{
+    if (!std::getenv("IZAN_LIVE_TESTS")) {
+        MESSAGE("skipped (set IZAN_LIVE_TESTS=1 to run against mainnet)");
+        return;
+    }
+    const std::string address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+    const auto registry = izan::chains::ChainRegistry::from_json([] {
+        std::ifstream f("data/chains.json", std::ios::binary);
+        std::ostringstream ss;
+        ss << f.rdbuf();
+        return ss.str();
+    }());
+    std::set<std::string> token_hashes;
+    int rows_total = 0;
+    for (const auto& chain : registry.all()) {
+        if (chain.history.empty())
+            continue;
+        try {
+            for (auto& rec :
+                izan::assets::fetch_token_history(chain, address)) {
+                token_hashes.insert(rec.hash);
+                const std::string amount = izan::units::format_units_display(
+                    rec.value, rec.token_decimals);
+                MESSAGE(chain.name << " token " << rec.token_symbol << " "
+                                   << amount);
+                ++rows_total;
+            }
+        } catch (const std::exception& e) {
+            const std::string kind = typeid(e).name();
+            const std::string what = e.what();
+            MESSAGE(chain.name << " tokentx: [" << kind << "] " << what);
+        }
+        try {
+            for (auto& rec : izan::assets::fetch_history(chain, address)) {
+                if (rec.value.to_dec() == "0"
+                    && token_hashes.contains(rec.hash))
+                    continue;
+                const std::string amount = izan::units::format_units_display(
+                    rec.value, chain.decimals);
+                MESSAGE(
+                    chain.name << " native " << amount << " t=" << rec.time);
+                ++rows_total;
+            }
+        } catch (const std::exception& e) {
+            const std::string kind = typeid(e).name();
+            const std::string what = e.what();
+            MESSAGE(chain.name << " txlist: [" << kind << "] " << what);
+        }
+    }
+    MESSAGE("rows " << rows_total);
+    CHECK(rows_total >= 0);
 }

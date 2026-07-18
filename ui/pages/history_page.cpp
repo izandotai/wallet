@@ -69,16 +69,13 @@ void HistoryPage::refresh(const std::string& address)
                 if (chain.history.empty())
                     continue;
                 try {
-                    for (assets::TxRecord& rec :
-                        assets::fetch_token_history(chain, address)) {
+                    assets::Ledger ledger
+                        = assets::fetch_ledger(chain, address);
+                    for (assets::TxRecord& rec : ledger.tokens) {
                         token_hashes.insert(rec.hash);
                         merged.push_back({ std::move(rec), &chain });
                     }
-                } catch (const std::exception&) {
-                }
-                try {
-                    for (assets::TxRecord& rec :
-                        assets::fetch_history(chain, address)) {
+                    for (assets::TxRecord& rec : ledger.native) {
                         // A token send's outer transaction is a
                         // zero-value call on the contract; the
                         // transfer row already tells the story.
@@ -87,7 +84,8 @@ void HistoryPage::refresh(const std::string& address)
                             continue;
                         merged.push_back({ std::move(rec), &chain });
                     }
-                } catch (const std::exception&) {
+                } catch (...) {
+                    // One silent chain must not blank the others.
                 }
             }
             std::sort(merged.begin(), merged.end(),
@@ -115,6 +113,11 @@ void HistoryPage::refresh(const std::string& address)
             job->phase.store(1);
         } catch (const std::exception& e) {
             job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            // Anything escaping a detached thread is process death;
+            // nothing that flies here is worth the whole wallet.
+            job->error = "history worker failed";
             job->phase.store(2);
         }
     }).detach();
