@@ -55,14 +55,16 @@ bool kit_choice_row(const char* id, const char* label,
 
 bool kit_selection_mark(const char* id, bool selected)
 {
+    // Sized to the frame height so the mark centers against framed
+    // neighbors (input fields) on the same row.
     const float em = ImGui::GetFontSize();
+    const float height = ImGui::GetFrameHeight();
     const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const bool clicked
-        = ImGui::InvisibleButton(id, ImVec2(em * 1.2f, em * 1.3f));
+    const bool clicked = ImGui::InvisibleButton(id, ImVec2(em * 1.2f, height));
     if (ImGui::IsItemHovered())
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     draw_mark(ImGui::GetWindowDrawList(),
-        ImVec2(pos.x + em * 0.45f, pos.y + em * 0.65f), em, selected);
+        ImVec2(pos.x + em * 0.45f, pos.y + height * 0.5f), em, selected);
     return clicked;
 }
 

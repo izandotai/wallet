@@ -55,17 +55,20 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
         if (i > 0)
             kit_hairline();
 
+        // Fixed columns, one baseline: mark, index, note, then the
+        // address flush right — every row lines up with every other.
+        ImGui::AlignTextToFramePadding();
         if (kit_selection_mark("##select", i == active) && i != active) {
             ev.type = Event::Type::Select;
             ev.index = i;
         }
 
-        ImGui::SameLine();
+        ImGui::SameLine(em * 1.6f);
         ImGui::PushFont(nullptr, kit_caption_size());
         ImGui::Text("#%u", i);
         ImGui::PopFont();
 
-        ImGui::SameLine();
+        ImGui::SameLine(em * 3.2f);
         ImGui::SetNextItemWidth(em * 7.0f);
         kit_text_field("##note", tr("wallet.note"), m_labels[i].data(),
             m_labels[i].size());
