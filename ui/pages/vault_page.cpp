@@ -14,6 +14,7 @@
 #include "ui/shell/ime.hpp"
 #include "ui/wallet/import_model.hpp"
 #include "ui/wallet/presets.hpp"
+#include "ui/widgets/kit.hpp"
 
 namespace izan::ui {
 
@@ -149,25 +150,54 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     m_secret_focus = false; // the secret inputs below re-mark it
     const bool busy = m_job != nullptr;
 
-    // The workbench: wallet cards on the left, the active wallet's
-    // screen on the right. List events are applied after both panes
-    // have drawn — a screen must never change mid-frame.
-    ImGui::BeginChild("##wallet-cards",
-        ImVec2(ImGui::GetFontSize() * 13.0f, 0.0f), ImGuiChildFlags_Borders);
+    // The workbench: wallet cards on the left in a slightly recessed
+    // pane, the active wallet's screen on the right with generous
+    // padding. List events are applied after both panes have drawn —
+    // a screen must never change mid-frame.
+    const float em = ImGui::GetFontSize();
+    {
+        const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg,
+            ImVec4(bg.x * 0.82f, bg.y * 0.82f, bg.z * 0.82f, 1.0f));
+    }
+    ImGui::PushStyleVar(
+        ImGuiStyleVar_WindowPadding, ImVec2(em * 0.5f, em * 0.5f));
+    ImGui::BeginChild("##wallet-cards", ImVec2(em * 12.0f, 0.0f),
+        ImGuiChildFlags_AlwaysUseWindowPadding);
     const WalletListView::Event lev
         = m_list.draw(tr, busy, m_store, m_active, m_session.unlocked());
     ImGui::EndChild();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
     ImGui::SameLine();
-    ImGui::BeginChild("##wallet-detail", ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(
+        ImGuiStyleVar_WindowPadding, ImVec2(em * 1.1f, em * 0.9f));
+    ImGui::BeginChild("##wallet-detail", ImVec2(0.0f, 0.0f),
+        ImGuiChildFlags_AlwaysUseWindowPadding);
+    ImGui::PopStyleVar();
 
-    if (m_mode == Mode::Locked || m_mode == Mode::Unlocked) {
-        ImGui::TextUnformatted(m_active_name.c_str());
+    if (m_mode == Mode::Unlocked) {
+        // The header: who this wallet is, and what it is, at a glance.
+        const float avatar = em * 2.1f;
+        const ImVec2 head = ImGui::GetCursorScreenPos();
+        kit_avatar_at(head, m_active_name.c_str(), avatar);
+        ImGui::SetCursorScreenPos(
+            ImVec2(head.x + avatar + em * 0.55f, head.y - em * 0.1f));
+        kit_title(m_active_name.c_str());
+        ImGui::SetCursorScreenPos(
+            ImVec2(head.x + avatar + em * 0.55f, head.y + em * 1.35f));
         const char* badge = kind_badge_key(m_meta.kind);
         if (*badge) {
+            kit_pill(tr(badge), kit_accent());
             ImGui::SameLine();
-            ImGui::TextDisabled("%s", tr(badge));
         }
-        ImGui::Separator();
+        if (m_meta.kind == kKindHd) {
+            kit_pill(preset_name(keyd::DerivePreset(m_meta.preset)),
+                ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::SameLine();
+        }
+        ImGui::NewLine();
+        ImGui::SetCursorScreenPos(ImVec2(head.x, head.y + avatar + em * 0.6f));
     }
 
     switch (m_mode) {
@@ -185,7 +215,8 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
             enter(Mode::Locked);
         break;
     case Mode::Locked: {
-        UnlockView::Event ev = m_unlock.draw(tr, busy, m_secret_focus);
+        UnlockView::Event ev
+            = m_unlock.draw(tr, busy, m_secret_focus, m_active_name);
         if (ev.err)
             set_status(ev.err);
         else if (ev.type == UnlockView::Event::Type::Submit)
@@ -197,8 +228,7 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
             m_session.addresses(), m_meta.active,
             m_session.client()
                 && m_session.client()->wallet_kind()
-                    == keyd::RevealKind::SeedEntropy,
-            m_meta.preset));
+                    == keyd::RevealKind::SeedEntropy));
         break;
     }
 

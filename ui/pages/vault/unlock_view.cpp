@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <sodium.h>
 
+#include "ui/widgets/kit.hpp"
 #include "ui/widgets/secret_field.hpp"
 
 namespace izan::ui {
@@ -12,17 +13,53 @@ namespace izan::ui {
 void UnlockView::reset()
 {
     sodium_memzero(m_pass.data(), m_pass.size());
+    m_focus_pending = true;
 }
 
-UnlockView::Event UnlockView::draw(
-    const i18n::Catalog& tr, bool busy, bool& secret_focus)
+UnlockView::Event UnlockView::draw(const i18n::Catalog& tr, bool busy,
+    bool& secret_focus, const std::string& wallet_name)
 {
     Event ev;
+    const float em = ImGui::GetFontSize();
+    const float col = em * 13.0f;
+    const float width = ImGui::GetWindowSize().x;
+    auto centered = [&](float w) {
+        ImGui::SetCursorPosX((width - w) * 0.5f > 0 ? (width - w) * 0.5f : 0);
+    };
+
+    ImGui::Dummy(ImVec2(0.0f, ImGui::GetContentRegionAvail().y * 0.18f));
+
+    const float avatar = em * 3.0f;
+    centered(avatar);
+    kit_avatar(wallet_name.c_str(), avatar);
+    kit_vspace(0.5f);
+
+    ImGui::PushFont(nullptr, kit_title_size());
+    centered(ImGui::CalcTextSize(wallet_name.c_str()).x);
+    ImGui::TextUnformatted(wallet_name.c_str());
+    ImGui::PopFont();
+
+    ImGui::PushFont(nullptr, kit_caption_size());
+    centered(ImGui::CalcTextSize(tr("vault.state.locked")).x);
     ImGui::TextDisabled("%s", tr("vault.state.locked"));
-    secret_field(tr("vault.passphrase"), m_pass, secret_focus);
+    ImGui::PopFont();
+    kit_vspace(0.8f);
+
+    bool submit = false;
+    centered(col);
+    ImGui::SetNextItemWidth(col);
+    if (m_focus_pending && !busy) {
+        ImGui::SetKeyboardFocusHere();
+        m_focus_pending = false;
+    }
+    submit |= secret_field(
+        "##unlock-pass", m_pass, secret_focus, tr("vault.passphrase"));
+    kit_vspace(0.25f);
 
     ImGui::BeginDisabled(busy);
-    if (ImGui::Button(tr("vault.unlock"))) {
+    centered(col);
+    submit |= kit_primary_button(tr("vault.unlock"), col);
+    if (submit) {
         if (strnlen(m_pass.data(), m_pass.size()) == 0) {
             ev.err = "vault.msg.empty_pass";
         } else {
@@ -31,8 +68,11 @@ UnlockView::Event UnlockView::draw(
         }
     }
     ImGui::EndDisabled();
-    if (busy)
+    if (busy) {
+        kit_vspace(0.25f);
+        centered(ImGui::CalcTextSize(tr("vault.busy.unlocking")).x);
         ImGui::TextDisabled("%s", tr("vault.busy.unlocking"));
+    }
     return ev;
 }
 

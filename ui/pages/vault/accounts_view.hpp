@@ -11,10 +11,11 @@
 
 namespace izan::ui {
 
-// The unlocked wallet: scheme badge, the account table — selection
-// mark, editable per-account note, middle-shortened address that
-// copies on click — a derive button for HD wallets, lock and backup.
-// Backup spends the passphrase again — the field here feeds it.
+// The unlocked wallet: a grouped card of accounts — check mark on the
+// selected one, editable note, middle-shortened address that copies on
+// click with visible feedback — a derive row for HD wallets, then the
+// lock and backup actions. Backup asks for the passphrase in its own
+// dialog; Enter submits it.
 class AccountsView {
 public:
     struct Event {
@@ -34,12 +35,15 @@ public:
     void set_labels(std::span<const std::string> labels, std::size_t count);
 
     Event draw(const i18n::Catalog& tr, bool busy, bool& secret_focus,
-        std::span<const std::string> addresses, uint32_t active, bool hd,
-        uint8_t preset);
+        std::span<const std::string> addresses, uint32_t active, bool hd);
 
 private:
     std::array<char, 256> m_pass {};
     std::vector<std::array<char, 48>> m_labels;
+    int m_copied = -1; // row with live "copied" feedback
+    double m_copied_at = 0.0;
+    bool m_open_backup = false;
+    bool m_focus_backup = false;
 };
 
 }

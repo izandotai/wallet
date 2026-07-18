@@ -315,6 +315,7 @@ if(IZAN_BUILD_UI AND WIN32)
         ui/pages/vault/list_view.cpp
         ui/pages/vault/secret_view.cpp
         ui/pages/vault/unlock_view.cpp
+        ui/widgets/kit.cpp
         ui/widgets/secret_field.cpp
     )
     target_link_libraries(izan PRIVATE izan_ui_shell izan_i18n izan_keyd

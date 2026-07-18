@@ -30,6 +30,7 @@ private:
     std::array<char, 64> m_name {};
     std::array<char, 256> m_pass {};
     std::array<char, 256> m_confirm {};
+    bool m_focus_pending = true;
 };
 
 }

@@ -6,6 +6,8 @@
 #include <sodium.h>
 
 #include "ui/wallet/presets.hpp"
+#include "ui/widgets/kit.hpp"
+#include "ui/widgets/secret_field.hpp"
 
 namespace izan::ui {
 
@@ -26,25 +28,67 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
     Event ev;
     ImGui::BeginDisabled(busy);
 
+    const float em = ImGui::GetFontSize();
+    kit_caption(tr("wallet.list"));
+    kit_vspace(0.2f);
+
     for (const WalletEntry& w : store.wallets()) {
         ImGui::PushID(w.id.c_str());
         const bool is_active = w.id == active_id;
 
+        // A source-list row, composed by hand: rounded selection
+        // highlight, avatar, name over subtitle, a lock dot trailing.
+        const float row_h = em * 2.4f;
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float row_w = ImGui::GetContentRegionAvail().x;
+        if (ImGui::InvisibleButton("##row", ImVec2(row_w, row_h))
+            && !is_active) {
+            ev.type = Event::Type::Activate;
+            ev.id = w.id;
+        }
+        const bool hovered = ImGui::IsItemHovered();
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        if (is_active || hovered)
+            draw->AddRectFilled(pos, ImVec2(pos.x + row_w, pos.y + row_h),
+                ImGui::GetColorU32(
+                    is_active ? ImGuiCol_Header : ImGuiCol_HeaderHovered,
+                    is_active ? 1.0f : 0.55f),
+                em * 0.35f);
+
+        const float avatar = em * 1.7f;
+        kit_avatar_at(
+            ImVec2(pos.x + em * 0.35f, pos.y + (row_h - avatar) * 0.5f),
+            w.name.c_str(), avatar);
+
+        const float text_x = pos.x + em * 0.35f + avatar + em * 0.45f;
         std::string subtitle = kind_badge(tr, w.kind);
         if (w.count > 1) {
             if (!subtitle.empty())
                 subtitle += " · ";
             subtitle += std::to_string(w.count);
         }
-        const char* dot = is_active && active_unlocked ? "●" : "○";
-        std::string label = std::string(dot) + " " + w.name;
-        if (!subtitle.empty())
-            label += "\n   " + subtitle;
-
-        if (ImGui::Selectable(label.c_str(), is_active) && !is_active) {
-            ev.type = Event::Type::Activate;
-            ev.id = w.id;
+        const float name_y = subtitle.empty() ? pos.y + (row_h - em) * 0.5f
+                                              : pos.y + em * 0.28f;
+        draw->AddText(ImVec2(text_x, name_y), ImGui::GetColorU32(ImGuiCol_Text),
+            w.name.c_str());
+        if (!subtitle.empty()) {
+            ImGui::PushFont(nullptr, kit_caption_size());
+            draw->AddText(ImGui::GetFont(), kit_caption_size(),
+                ImVec2(text_x, name_y + em * 1.05f),
+                ImGui::GetColorU32(ImGuiCol_TextDisabled), subtitle.c_str());
+            ImGui::PopFont();
         }
+
+        // Trailing lock state: filled accent dot when this wallet is
+        // open, a quiet ring otherwise.
+        const ImVec2 dot(pos.x + row_w - em * 0.7f, pos.y + row_h * 0.5f);
+        if (is_active && active_unlocked)
+            draw->AddCircleFilled(
+                dot, em * 0.16f, ImGui::GetColorU32(kit_accent()));
+        else
+            draw->AddCircle(dot, em * 0.16f,
+                ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.7f));
+
         if (ImGui::BeginPopupContextItem("##card-menu")) {
             if (ImGui::MenuItem(tr("wallet.activate")) && !is_active) {
                 ev.type = Event::Type::Activate;
@@ -64,15 +108,18 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
             }
             ImGui::EndPopup();
         }
-        ImGui::Spacing();
         ImGui::PopID();
     }
 
-    ImGui::Separator();
-    if (ImGui::Button(tr("vault.create")))
+    // New and Import live at the bottom of the pane, out of the way.
+    const float footer = em * 2.2f;
+    const float slack = ImGui::GetContentRegionAvail().y - footer;
+    if (slack > 0.0f)
+        ImGui::Dummy(ImVec2(0.0f, slack));
+    if (kit_subtle_button(tr("vault.create")))
         ev.type = Event::Type::Create;
     ImGui::SameLine();
-    if (ImGui::Button(tr("vault.import")))
+    if (kit_subtle_button(tr("vault.import")))
         ev.type = Event::Type::Import;
 
     // Modals are opened outside the card loop so their ids are stable.
@@ -87,17 +134,22 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
 
     if (ImGui::BeginPopupModal(
             "##rename-wallet", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::InputText(tr("wallet.name"), m_rename.data(), m_rename.size());
-        if (ImGui::Button(tr("wallet.rename"))) {
+        kit_title(tr("wallet.rename"));
+        kit_vspace(0.3f);
+        ImGui::SetNextItemWidth(em * 12.0f);
+        ImGui::InputTextWithHint("##rename-name", tr("wallet.name"),
+            m_rename.data(), m_rename.size());
+        kit_vspace(0.3f);
+        if (kit_subtle_button(tr("ui.cancel")))
+            ImGui::CloseCurrentPopup();
+        ImGui::SameLine();
+        if (kit_primary_button(tr("wallet.rename"))) {
             ev.type = Event::Type::Rename;
             ev.id = m_target;
             ev.name = std::string(
                 m_rename.data(), strnlen(m_rename.data(), m_rename.size()));
             ImGui::CloseCurrentPopup();
         }
-        ImGui::SameLine();
-        if (ImGui::Button(tr("ui.cancel")))
-            ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 
@@ -107,24 +159,29 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
         for (const WalletEntry& w : store.wallets())
             if (w.id == m_target)
                 target_name = w.name;
+        kit_title("⚠️");
+        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + em * 16.0f);
         ImGui::TextWrapped("%s", tr("wallet.delete.warn"));
-        ImGui::Spacing();
+        ImGui::PopTextWrapPos();
+        kit_vspace(0.3f);
         ImGui::TextUnformatted(target_name.c_str());
-        ImGui::TextDisabled("%s", tr("wallet.delete.confirm"));
+        kit_caption(tr("wallet.delete.confirm"));
+        ImGui::SetNextItemWidth(em * 12.0f);
         ImGui::InputText("##confirm", m_confirm.data(), m_confirm.size());
         const std::string typed(
             m_confirm.data(), strnlen(m_confirm.data(), m_confirm.size()));
+        kit_vspace(0.3f);
+        if (kit_subtle_button(tr("ui.cancel")))
+            ImGui::CloseCurrentPopup();
+        ImGui::SameLine();
         ImGui::BeginDisabled(typed != target_name);
-        if (ImGui::Button(tr("wallet.delete"))) {
+        if (kit_danger_button(tr("wallet.delete"))) {
             ev.type = Event::Type::Delete;
             ev.id = m_target;
             sodium_memzero(m_confirm.data(), m_confirm.size());
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndDisabled();
-        ImGui::SameLine();
-        if (ImGui::Button(tr("ui.cancel")))
-            ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
 

@@ -90,6 +90,8 @@
     "wallet.note": "メモ",
     "ui.continue": "続行",
     "ui.cancel": "キャンセル",
+    "ui.back": "戻る",
+    "ui.copied": "コピーしました",
     "vault.warn.backup.key": "この秘密鍵を知っている人は誰でもこのウォレットの資産を動かせます。絶対に共有しないでください。",
     "wallet.account.add": "新しいアドレスを導出"
 }

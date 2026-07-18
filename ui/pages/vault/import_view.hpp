@@ -39,6 +39,7 @@ private:
 
     ImportModel m_model;
     Step m_step = Step::Paste;
+    bool m_focus_pending = true;
     std::array<char, 64> m_name {};
     std::array<char, 1024> m_secret_in {};
     std::array<char, 256> m_pass {};

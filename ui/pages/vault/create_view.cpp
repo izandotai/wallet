@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <sodium.h>
 
+#include "ui/widgets/kit.hpp"
 #include "ui/widgets/secret_field.hpp"
 
 namespace izan::ui {
@@ -14,18 +15,44 @@ void CreateView::reset()
     sodium_memzero(m_name.data(), m_name.size());
     sodium_memzero(m_pass.data(), m_pass.size());
     sodium_memzero(m_confirm.data(), m_confirm.size());
+    m_focus_pending = true;
 }
 
 CreateView::Event CreateView::draw(const i18n::Catalog& tr, bool busy,
     bool& secret_focus, const WalletStore& store)
 {
     Event ev;
-    ImGui::InputText(tr("wallet.name"), m_name.data(), m_name.size());
-    secret_field(tr("vault.passphrase"), m_pass, secret_focus);
-    secret_field(tr("vault.passphrase.confirm"), m_confirm, secret_focus);
+    const float em = ImGui::GetFontSize();
+    const float col = em * 14.0f;
+
+    kit_title(tr("vault.create"));
+    kit_vspace(0.5f);
+
+    kit_group_begin("##create-fields", col + em * 1.2f);
+    ImGui::SetNextItemWidth(col);
+    if (m_focus_pending && !busy) {
+        ImGui::SetKeyboardFocusHere();
+        m_focus_pending = false;
+    }
+    ImGui::InputTextWithHint(
+        "##name", tr("wallet.name"), m_name.data(), m_name.size());
+    kit_hairline();
+    ImGui::SetNextItemWidth(col);
+    secret_field("##pass", m_pass, secret_focus, tr("vault.passphrase"));
+    ImGui::SetNextItemWidth(col);
+    bool submit = secret_field(
+        "##confirm", m_confirm, secret_focus, tr("vault.passphrase.confirm"));
+    kit_group_end();
+    kit_vspace(0.5f);
 
     ImGui::BeginDisabled(busy);
-    if (ImGui::Button(tr("vault.create"))) {
+    if (kit_subtle_button(tr("ui.back"))) {
+        reset();
+        ev.type = Event::Type::Back;
+    }
+    ImGui::SameLine();
+    submit |= kit_primary_button(tr("vault.create"));
+    if (submit) {
         const std::string name(
             m_name.data(), strnlen(m_name.data(), m_name.size()));
         if (!store.valid_new_name(name)) {
@@ -43,13 +70,10 @@ CreateView::Event CreateView::draw(const i18n::Catalog& tr, bool busy,
         }
     }
     ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (ImGui::Button("<##create-back")) {
-        reset();
-        ev.type = Event::Type::Back;
-    }
-    if (busy)
+    if (busy) {
+        kit_vspace(0.25f);
         ImGui::TextDisabled("%s", tr("vault.busy.creating"));
+    }
     return ev;
 }
 

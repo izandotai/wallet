@@ -90,6 +90,8 @@
     "wallet.note": "Note",
     "ui.continue": "Continuer",
     "ui.cancel": "Annuler",
+    "ui.back": "Retour",
+    "ui.copied": "Copié",
     "vault.warn.backup.key": "Quiconque connaît cette clé peut dépenser les fonds de ce portefeuille. Ne la partagez jamais.",
     "wallet.account.add": "Dériver une nouvelle adresse"
 }
