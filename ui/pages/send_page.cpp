@@ -199,12 +199,12 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     // The sum is the subject; the chain rides underneath as a quiet
     // capsule — most senders live on one chain and shouldn't spend a
     // form row on it.
-    kit_amount_field("##send-amount", m_amount.data(), m_amount.size());
+    kit_amount_field("##send-amount", m_amount.data(), m_amount.size(),
+        chain.symbol.c_str());
 
-    const std::string chain_label = chain.name + " · " + chain.symbol;
-    const float cap_w = em * 11.0f;
+    const float cap_w = em * 10.0f;
     ImGui::SetCursorPosX(left + (col - cap_w) * 0.5f);
-    if (kit_select_begin("##send-chain", chain_label.c_str(), cap_w)) {
+    if (kit_select_begin("##send-chain", chain.name.c_str(), cap_w)) {
         for (int i = 0; i < int(m_registry.all().size()); ++i) {
             const chains::ChainSpec& c = m_registry.all()[std::size_t(i)];
             if (kit_select_item(c.name.c_str(), i == m_chain_index))
@@ -217,7 +217,8 @@ void SendPage::draw_form(const i18n::Catalog& tr)
 
     ImGui::SetCursorPosX(left);
     ImGui::SetNextItemWidth(col);
-    kit_text_field("##send-to", tr("send.to"), m_to.data(), m_to.size());
+    kit_address_field("##send-to", tr("send.to"), m_to.data(), m_to.size(),
+        tr("ui.paste"), tr("ui.copy_action"), tr("ui.clear"));
 
     const bool to_present = m_to[0] != '\0';
     const bool to_valid
@@ -410,6 +411,8 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
     const std::string amount
         = units::format_units(m_tx.value, chain.decimals) + " " + chain.symbol;
 
+    // An elided value must stay reviewable: hovering any shortened row
+    // reveals the whole thing.
     auto row = [&](const char* label, const std::string& value) {
         const float x0 = ImGui::GetCursorPosX();
         ImGui::TextDisabled("%s", label);
@@ -420,6 +423,8 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         ImGui::SetCursorPosX(
             x0 + content - ImGui::CalcTextSize(shown.c_str()).x);
         ImGui::TextUnformatted(shown.c_str());
+        if (shown != value && ImGui::IsItemHovered())
+            kit_tooltip(value.c_str());
     };
 
     auto hero = [&](const char* text) {
@@ -445,9 +450,7 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         break;
     }
     case Stage::Review: {
-        hero(amount.c_str());
-        centered_caption(chain.name.c_str());
-        kit_vspace(0.4f);
+        kit_dialog_header_icon("📤", amount.c_str(), chain.name.c_str());
 
         const units::U256 fee_max
             = m_tx.max_fee_per_gas.checked_mul_u64(m_tx.gas_limit);
@@ -536,8 +539,11 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
             if (!chain.explorer.empty()) {
                 const std::string link
                     = chain.explorer + "/tx/" + m_job->tx_hash;
-                kit_copy_text_centered("##send-link", link.c_str(),
-                    tr("send.hash"), tr("ui.copied"));
+                const float w = ImGui::CalcTextSize(link.c_str()).x;
+                if (w < content)
+                    ImGui::SetCursorPosX(
+                        ImGui::GetCursorPosX() + (content - w) * 0.5f);
+                kit_hyperlink("##send-link", link.c_str(), link.c_str());
             }
         }
         kit_vspace(0.4f);

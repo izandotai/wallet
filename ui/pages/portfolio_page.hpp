@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <atomic>
 #include <filesystem>
 #include <memory>
@@ -14,8 +13,7 @@
 namespace izan::ui {
 
 // The assets page follows the vault: unlock a wallet and its holdings
-// appear, no address to paste — looking up a foreign address is the
-// secondary flow behind a link. Snapshots run on a background job — a
+// appear, no address to paste. Snapshots run on a background job — a
 // slow RPC must never freeze the frame loop — and a chain that fails
 // to answer stays visible as an unreadable row, never as a blank.
 class PortfolioPage {
@@ -48,8 +46,6 @@ private:
     std::shared_ptr<assets::PortfolioReader> m_reader;
     VaultPage& m_vault;
     std::string m_followed;    // the address the shown rows belong to
-    bool m_manual = false;     // looking up a foreign address
-    std::array<char, 128> m_address {};
     double m_fetched_at = 0.0; // frame clock at the last snapshot
     std::vector<Row> m_rows;
     std::shared_ptr<Job> m_job;

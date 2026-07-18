@@ -6,6 +6,7 @@
 // widgets for anything the kit covers. This header is the whole
 // library; include a single component's header for a lean build edge.
 
+#include "ui/widgets/address_field.hpp"
 #include "ui/widgets/amount_field.hpp"
 #include "ui/widgets/asset_row.hpp"
 #include "ui/widgets/avatar.hpp"
@@ -16,6 +17,7 @@
 #include "ui/widgets/design.hpp"
 #include "ui/widgets/dialog.hpp"
 #include "ui/widgets/empty_state.hpp"
+#include "ui/widgets/hyperlink.hpp"
 #include "ui/widgets/label.hpp"
 #include "ui/widgets/list_row.hpp"
 #include "ui/widgets/pill.hpp"

@@ -96,7 +96,8 @@
     "wallet.account.add": "Deriva nuovo indirizzo",
     "send.review_send": "Rivedi e invia",
     "ui.done": "Fatto",
-    "portfolio.lookup": "Cerca indirizzo",
-    "portfolio.mine": "I miei asset",
-    "portfolio.empty": "Sblocca un portafoglio per vedere i suoi asset."
+    "portfolio.empty": "Sblocca un portafoglio per vedere i suoi asset.",
+    "ui.paste": "Incolla",
+    "ui.copy_action": "Copia",
+    "ui.clear": "Cancella"
 }

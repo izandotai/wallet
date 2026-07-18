@@ -311,6 +311,7 @@ if(IZAN_BUILD_UI AND WIN32)
     # host a component gallery without dragging the wallet in.
     add_library(izan_kit STATIC
         ${qrcodegen_SOURCE_DIR}/cpp/qrcodegen.cpp
+        ui/widgets/address_field.cpp
         ui/widgets/amount_field.cpp
         ui/widgets/asset_row.cpp
         ui/widgets/avatar.cpp
@@ -321,6 +322,7 @@ if(IZAN_BUILD_UI AND WIN32)
         ui/widgets/design.cpp
         ui/widgets/dialog.cpp
         ui/widgets/empty_state.cpp
+        ui/widgets/hyperlink.cpp
         ui/widgets/label.cpp
         ui/widgets/list_row.cpp
         ui/widgets/pill.cpp
@@ -336,7 +338,8 @@ if(IZAN_BUILD_UI AND WIN32)
     )
     target_include_directories(izan_kit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
         PRIVATE ${qrcodegen_SOURCE_DIR}/cpp)
-    target_link_libraries(izan_kit PUBLIC izan_imgui izan_secure)
+    # shell32: kit_hyperlink hands URLs to the system browser.
+    target_link_libraries(izan_kit PUBLIC izan_imgui izan_secure shell32)
 
     # WIN32 = windows subsystem: no console flashes up on double-click;
     # launched from a terminal, try_attach_parent_console re-plumbs

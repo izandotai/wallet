@@ -96,7 +96,8 @@
     "wallet.account.add": "Dériver une nouvelle adresse",
     "send.review_send": "Vérifier et envoyer",
     "ui.done": "Terminé",
-    "portfolio.lookup": "Consulter une adresse",
-    "portfolio.mine": "Mes actifs",
-    "portfolio.empty": "Déverrouillez un portefeuille pour voir ses actifs."
+    "portfolio.empty": "Déverrouillez un portefeuille pour voir ses actifs.",
+    "ui.paste": "Coller",
+    "ui.copy_action": "Copier",
+    "ui.clear": "Effacer"
 }

@@ -1,8 +1,6 @@
 #include "ui/pages/portfolio_page.hpp"
 
-#include <algorithm>
 #include <cstdio>
-#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <thread>
@@ -111,7 +109,7 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
     // Follow the vault: the active account's holdings, unasked.
     const std::string mine
         = m_vault.unlocked() ? m_vault.active_address() : std::string();
-    if (!m_manual && mine != m_followed) {
+    if (mine != m_followed) {
         m_followed = mine;
         m_rows.clear();
         m_status.clear();
@@ -119,22 +117,7 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
         refresh(mine);
     }
 
-    if (m_manual) {
-        const float go_w = em * 5.0f;
-        ImGui::SetNextItemWidth(std::min(avail - go_w - em * 0.5f, em * 20.0f));
-        const bool submitted = kit_text_field("##pf-address",
-            tr("portfolio.address"), m_address.data(), m_address.size());
-        ImGui::SameLine();
-        ImGui::BeginDisabled(busy);
-        const bool go = kit_subtle_button(tr("portfolio.refresh"), go_w);
-        ImGui::EndDisabled();
-        if ((submitted || go) && m_address[0] != '\0') {
-            m_rows.clear();
-            m_fetched_at = 0.0;
-            refresh(std::string(
-                m_address.data(), strnlen(m_address.data(), m_address.size())));
-        }
-    } else if (!m_vault.active_name().empty()) {
+    if (!m_vault.active_name().empty()) {
         const float av = em * 1.7f;
         kit_avatar(m_vault.active_name().c_str(), av);
         ImGui::SameLine(0.0f, em * 0.5f);
@@ -151,12 +134,11 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
         ImGui::EndGroup();
     }
 
-    // Control line: refresh on the left, the age of the numbers beside
-    // it, the foreign-address lookup tucked right.
+    // Control line: refresh, with the age of the numbers beside it.
     kit_vspace(0.25f);
     if (busy) {
         kit_spinner(0.55f);
-    } else if (!m_manual && !m_followed.empty()) {
+    } else if (!m_followed.empty()) {
         if (kit_link_button(tr("portfolio.refresh")))
             refresh(m_followed);
         if (m_fetched_at > 0.0) {
@@ -169,21 +151,6 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
             ImGui::SameLine();
             kit_caption(ago);
         }
-    }
-    const char* toggle
-        = m_manual ? tr("portfolio.mine") : tr("portfolio.lookup");
-    ImGui::SameLine();
-    const float toggle_w = ImGui::CalcTextSize(toggle).x
-        + ImGui::GetStyle().FramePadding.x * 2.0f;
-    const float slack = ImGui::GetContentRegionAvail().x - toggle_w;
-    if (slack > 0.0f)
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + slack);
-    if (kit_link_button(toggle)) {
-        m_manual = !m_manual;
-        m_rows.clear();
-        m_status.clear();
-        m_fetched_at = 0.0;
-        m_followed.clear(); // re-follow (and re-fetch) on the way back
     }
 
     if (!m_status.empty()) {

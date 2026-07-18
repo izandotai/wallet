@@ -96,7 +96,8 @@
     "wallet.account.add": "新しいアドレスを導出",
     "send.review_send": "内容を確認",
     "ui.done": "完了",
-    "portfolio.lookup": "アドレスを検索",
-    "portfolio.mine": "自分の資産",
-    "portfolio.empty": "ウォレットを解錠すると資産が表示されます。"
+    "portfolio.empty": "ウォレットを解錠すると資産が表示されます。",
+    "ui.paste": "貼り付け",
+    "ui.copy_action": "コピー",
+    "ui.clear": "クリア"
 }

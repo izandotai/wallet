@@ -96,7 +96,8 @@
     "wallet.account.add": "Derive new address",
     "send.review_send": "Review & Send",
     "ui.done": "Done",
-    "portfolio.lookup": "Look up address",
-    "portfolio.mine": "My assets",
-    "portfolio.empty": "Unlock a wallet to see its assets."
+    "portfolio.empty": "Unlock a wallet to see its assets.",
+    "ui.paste": "Paste",
+    "ui.copy_action": "Copy",
+    "ui.clear": "Clear"
 }

@@ -96,7 +96,8 @@
     "wallet.account.add": "Вывести новый адрес",
     "send.review_send": "Проверить и отправить",
     "ui.done": "Готово",
-    "portfolio.lookup": "Посмотреть адрес",
-    "portfolio.mine": "Мои активы",
-    "portfolio.empty": "Разблокируйте кошелёк, чтобы увидеть активы."
+    "portfolio.empty": "Разблокируйте кошелёк, чтобы увидеть активы.",
+    "ui.paste": "Вставить",
+    "ui.copy_action": "Копировать",
+    "ui.clear": "Очистить"
 }

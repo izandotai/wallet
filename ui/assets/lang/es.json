@@ -96,7 +96,8 @@
     "wallet.account.add": "Derivar nueva dirección",
     "send.review_send": "Revisar y enviar",
     "ui.done": "Listo",
-    "portfolio.lookup": "Consultar dirección",
-    "portfolio.mine": "Mis activos",
-    "portfolio.empty": "Desbloquea una cartera para ver sus activos."
+    "portfolio.empty": "Desbloquea una cartera para ver sus activos.",
+    "ui.paste": "Pegar",
+    "ui.copy_action": "Copiar",
+    "ui.clear": "Borrar"
 }

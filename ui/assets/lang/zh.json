@@ -96,7 +96,8 @@
     "wallet.account.add": "派生新地址",
     "send.review_send": "审阅并发送",
     "ui.done": "完成",
-    "portfolio.lookup": "查询任意地址",
-    "portfolio.mine": "我的资产",
-    "portfolio.empty": "解锁钱包后自动显示资产。"
+    "portfolio.empty": "解锁钱包后自动显示资产。",
+    "ui.paste": "粘贴",
+    "ui.copy_action": "复制",
+    "ui.clear": "清除"
 }

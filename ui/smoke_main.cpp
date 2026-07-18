@@ -168,7 +168,18 @@ void draw_kit_gallery()
     kit_heading("金额输入 amount_field");
     kit_group_begin("##sec-amount");
     static std::array<char, 32> amount {};
-    kit_amount_field("##amount", amount.data(), amount.size());
+    kit_amount_field("##amount", amount.data(), amount.size(), "ETH");
+    kit_group_end();
+    kit_vspace();
+
+    kit_heading("地址框 address_field · 链接 hyperlink");
+    kit_group_begin("##sec-address");
+    static std::array<char, 64> addr {};
+    ImGui::SetNextItemWidth(em * 18.0f);
+    kit_address_field("##addr-demo", "收款地址", addr.data(), addr.size(),
+        "粘贴", "复制", "清除");
+    kit_hyperlink("##link-demo", "etherscan.io/tx/0x43b5…e7",
+        "https://etherscan.io/tx/0xdeadbeef");
     kit_group_end();
     kit_vspace();
 
