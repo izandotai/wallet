@@ -81,9 +81,14 @@ namespace {
                 centered(w);
                 ImGui::TextDisabled("%s", subtitle);
             } else {
+                // Wrap at the dialog's fixed width, never the window's
+                // own: an auto-resizing window that wraps to itself
+                // oscillates between two widths and shimmers.
                 ImGui::PushStyleColor(ImGuiCol_Text,
                     ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-                ImGui::TextWrapped("%s", subtitle);
+                ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + content);
+                ImGui::TextUnformatted(subtitle);
+                ImGui::PopTextWrapPos();
                 ImGui::PopStyleColor();
             }
             ImGui::PopFont();
