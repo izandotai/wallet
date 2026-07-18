@@ -121,6 +121,18 @@ TEST_CASE("txflow: malformed receipts refuse instead of guessing")
         R"("gasUsed":"0x1","effectiveGasPrice":"0x1"})"));
 }
 
+TEST_CASE("txflow: base fee comes from the block or not at all")
+{
+    CHECK(izan::tx::parse_base_fee(R"({"baseFeePerGas":"0x77359400"})")
+        == U256::from_dec("2000000000"));
+
+    CHECK_THROWS(izan::tx::parse_base_fee("garbage"));
+    CHECK_THROWS(izan::tx::parse_base_fee("null")); // no such block
+    // Pre-London block: pricing a type-2 tx there is an error, not a
+    // zero-fee bargain.
+    CHECK_THROWS(izan::tx::parse_base_fee(R"({"number":"0x1"})"));
+}
+
 // End-to-end quoting and receipt reads against mainnet. Opt-in:
 //   IZAN_LIVE_TESTS=1 build/izan_tests.exe
 TEST_CASE("live: nonce, gas quote and golden receipt through the full stack")
@@ -158,6 +170,15 @@ TEST_CASE("live: nonce, gas quote and golden receipt through the full stack")
     CHECK(receipt->gas_used <= kVecGas);
     CHECK(!receipt->effective_gas_price.is_zero());
     CHECK(receipt->effective_gas_price <= U256::from_hex(kVecMaxFee));
+
+    // A live fee quote must be internally consistent: the cap covers
+    // a doubled base fee plus the tip, and mainnet's base fee is never
+    // zero.
+    const auto fees = izan::tx::quote_fees(rpc);
+    CHECK(!fees.base_fee_per_gas.is_zero());
+    CHECK(fees.max_fee_per_gas
+        == fees.base_fee_per_gas.checked_add(fees.base_fee_per_gas)
+            .checked_add(fees.max_priority_fee_per_gas));
 
     // A hash nobody ever mined: the pending/unknown path.
     std::array<uint8_t, 32> never {};

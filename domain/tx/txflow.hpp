@@ -35,6 +35,23 @@ uint64_t estimate_gas(
 std::array<uint8_t, 32> broadcast(
     chains::RpcClient& rpc, std::span<const uint8_t> raw);
 
+// EIP-1559 fee quote: the node's suggested tip plus a cap with room
+// for the base fee to double before the transaction would stall —
+// overpayment is refunded by construction, a low cap strands the send.
+struct FeeQuote {
+    units::U256 max_priority_fee_per_gas;
+    units::U256 max_fee_per_gas;
+    units::U256 base_fee_per_gas; // latest block, for display
+};
+
+FeeQuote quote_fees(chains::RpcClient& rpc);
+
+// Parsing half of quote_fees' block lookup, split out for judging
+// without a node: eth_getBlockByNumber's "result" JSON in, its
+// baseFeePerGas out. A pre-London chain (no field) throws — type-2
+// transactions cannot be priced there.
+units::U256 parse_base_fee(std::string_view block_json);
+
 // Receipt of a mined transaction; nullopt while pending or unknown.
 struct TxReceipt {
     bool success = false; // status 0x1

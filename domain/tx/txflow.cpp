@@ -86,6 +86,30 @@ std::array<uint8_t, 32> broadcast(
     return local;
 }
 
+units::U256 parse_base_fee(std::string_view block_json)
+{
+    glz::generic j;
+    if (glz::read_json(j, block_json))
+        throw std::runtime_error("block: malformed json");
+    if (!j.is_object())
+        throw std::runtime_error("block: not an object");
+    if (!j.contains("baseFeePerGas") || !j["baseFeePerGas"].is_string())
+        throw std::runtime_error("block: no baseFeePerGas (pre-London?)");
+    return units::U256::from_hex(j["baseFeePerGas"].get_string());
+}
+
+FeeQuote quote_fees(chains::RpcClient& rpc)
+{
+    FeeQuote q;
+    q.base_fee_per_gas = parse_base_fee(
+        rpc.call("eth_getBlockByNumber", "[\"latest\",false]"));
+    q.max_priority_fee_per_gas = units::U256::from_hex(
+        rpc.call_string("eth_maxPriorityFeePerGas", "[]"));
+    q.max_fee_per_gas = q.base_fee_per_gas.checked_add(q.base_fee_per_gas)
+                            .checked_add(q.max_priority_fee_per_gas);
+    return q;
+}
+
 std::optional<TxReceipt> parse_receipt(std::string_view result_json)
 {
     glz::generic j;
