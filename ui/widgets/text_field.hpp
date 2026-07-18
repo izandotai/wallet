@@ -14,6 +14,11 @@ namespace izan::ui {
 bool kit_text_field(
     const char* id, const char* hint, char* buf, std::size_t size);
 
+// The field dress, exported for kit siblings that build richer entries
+// (amount row, address row) and must wear the same clothes.
+void kit_field_style_push();
+void kit_field_style_pop();
+
 // A password field that reports its focus into the page's secret-focus
 // aggregate — the flag the IME detach rides on. Field-level, not
 // form-level: ordinary text next to it keeps CJK input working. The

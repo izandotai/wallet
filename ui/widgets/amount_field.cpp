@@ -3,59 +3,73 @@
 #include <imgui.h>
 
 #include "ui/widgets/design.hpp"
+#include "ui/widgets/text_field.hpp"
 
 namespace izan::ui {
 
-bool kit_amount_field(
-    const char* id, char* buf, std::size_t size, const char* unit)
+bool kit_amount_field(const char* id, char* buf, std::size_t size,
+    const char* badge, bool* badge_clicked)
 {
     const float em = ImGui::GetFontSize();
-    const float max_w = ImGui::GetContentRegionAvail().x - em * 0.5f;
-    const char* shown = buf[0] ? buf : "0";
-    ImFont* font = ImGui::GetFont();
+    const float w = ImGui::CalcItemWidth();
+    const float big = kit_snap(em * 1.45f);
 
-    // Start large and step the type down until digits, caret room and
-    // unit all fit the row.
-    float big = kit_snap(em * 2.1f);
-    float text_w = 0.0f, unit_w = 0.0f, unit_size = 0.0f, gap = 0.0f;
-    for (;; big = kit_snap(big * 0.88f)) {
-        text_w = font->CalcTextSizeA(big, FLT_MAX, 0.0f, shown).x;
-        unit_size = kit_snap(big * 0.5f);
-        if (unit && *unit) {
-            gap = big * 0.2f;
-            unit_w = font->CalcTextSizeA(unit_size, FLT_MAX, 0.0f, unit).x;
-        }
-        if (text_w + em * 0.8f + gap + unit_w <= max_w || big <= em)
-            break;
-    }
-
-    const float field_w = text_w + em * 0.8f;
-    const float slack = max_w - field_w - gap - unit_w;
-    if (slack > 0.0f)
-        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + slack * 0.5f);
-
+    ImGui::PushID(id);
+    kit_field_style_push();
+    ImGui::PushStyleVar(
+        ImGuiStyleVar_FramePadding, ImVec2(em * 0.55f, em * 0.5f));
     ImGui::PushFont(nullptr, big);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-    ImGui::SetNextItemWidth(field_w);
-    const bool submitted = ImGui::InputTextWithHint(id, "0", buf, size,
+    ImGui::SetNextItemAllowOverlap();
+    ImGui::SetNextItemWidth(w);
+    const bool submitted = ImGui::InputTextWithHint("##in", "0", buf, size,
         ImGuiInputTextFlags_CharsDecimal
             | ImGuiInputTextFlags_EnterReturnsTrue);
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
     ImGui::PopFont();
+    ImGui::PopStyleVar();
+    kit_field_style_pop();
+    const ImVec2 fmin = ImGui::GetItemRectMin();
+    const ImVec2 fmax = ImGui::GetItemRectMax();
 
-    // The unit shares the digits' baseline, half their size and muted
-    // — the number speaks, the unit whispers.
-    if (unit && *unit) {
-        const ImVec2 fmin = ImGui::GetItemRectMin();
-        const ImVec2 fmax = ImGui::GetItemRectMax();
-        const float pad = (fmax.y - fmin.y - big) * 0.5f;
-        ImGui::GetWindowDrawList()->AddText(font, unit_size,
-            ImVec2(kit_snap(fmax.x + gap - em * 0.4f),
-                kit_snap(fmin.y + pad + big - unit_size * 1.12f)),
-            ImGui::GetColorU32(ImGuiCol_TextDisabled), unit);
+    if (badge && *badge) {
+        // The badge: a quiet capsule with a chevron, living inside the
+        // field's right edge. Opaque over the field so long digit runs
+        // pass under it, not through it.
+        const float chevron = em * 0.55f;
+        const float pad = em * 0.5f;
+        const float bw = ImGui::CalcTextSize(badge).x + chevron + pad * 2.0f;
+        const float bh = em * 1.7f;
+        const ImVec2 keep = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorScreenPos(
+            ImVec2(fmax.x - bw - em * 0.35f, (fmin.y + fmax.y - bh) * 0.5f));
+        ImGui::InvisibleButton("##badge", ImVec2(bw, bh));
+        const bool hovered = ImGui::IsItemHovered();
+        if (hovered)
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (badge_clicked && ImGui::IsItemClicked())
+            *badge_clicked = true;
+
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        const ImVec2 bmin = ImGui::GetItemRectMin();
+        const ImVec2 bmax = ImGui::GetItemRectMax();
+        const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+        const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        const float lift = kit_is_dark() ? 0.055f : 0.04f;
+        draw->AddRectFilled(bmin, bmax,
+            ImGui::GetColorU32(kit_blend(bg, text, lift)), bh * 0.5f);
+        draw->AddRectFilled(bmin, bmax,
+            ImGui::GetColorU32(kit_blend(bg, text, hovered ? 0.16f : 0.09f)),
+            bh * 0.5f);
+        draw->AddText(ImVec2(kit_snap(bmin.x + pad),
+                          kit_snap((bmin.y + bmax.y - em) * 0.5f)),
+            ImGui::GetColorU32(ImGuiCol_Text), badge);
+        const float cx = bmax.x - pad - chevron * 0.5f;
+        const float cy = (bmin.y + bmax.y) * 0.5f - chevron * 0.1f;
+        draw->AddTriangleFilled(ImVec2(cx - chevron * 0.4f, cy),
+            ImVec2(cx + chevron * 0.4f, cy), ImVec2(cx, cy + chevron * 0.42f),
+            ImGui::GetColorU32(ImGuiCol_TextDisabled));
+        ImGui::SetCursorScreenPos(keep);
     }
+    ImGui::PopID();
     return submitted;
 }
 

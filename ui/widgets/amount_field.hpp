@@ -4,11 +4,12 @@
 
 namespace izan::ui {
 
-// The amount, writ large: a centered, box-free numeric entry with an
-// optional unit riding its baseline. The type shrinks step by step as
-// the digits grow, so the full number is always visible — a sum that
-// cannot be read in full cannot be reviewed. Returns true on Enter.
-bool kit_amount_field(
-    const char* id, char* buf, std::size_t size, const char* unit = nullptr);
+// The amount row: a framed field wearing the kit's field dress, digits
+// in larger type on the left, and an embedded badge button on the
+// right edge (the network or unit — the caller decides what it means
+// and what pressing it does). Width comes from SetNextItemWidth.
+// Returns true on Enter; *badge_clicked reports a press on the badge.
+bool kit_amount_field(const char* id, char* buf, std::size_t size,
+    const char* badge, bool* badge_clicked = nullptr);
 
 }

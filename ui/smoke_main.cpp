@@ -168,7 +168,13 @@ void draw_kit_gallery()
     kit_heading("金额输入 amount_field");
     kit_group_begin("##sec-amount");
     static std::array<char, 32> amount {};
-    kit_amount_field("##amount", amount.data(), amount.size(), "ETH");
+    static bool amount_unit = false;
+    ImGui::SetNextItemWidth(em * 18.0f);
+    bool unit_clicked = false;
+    kit_amount_field("##amount", amount.data(), amount.size(),
+        amount_unit ? "Solana" : "Ethereum", &unit_clicked);
+    if (unit_clicked)
+        amount_unit = !amount_unit;
     kit_group_end();
     kit_vspace();
 

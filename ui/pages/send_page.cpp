@@ -194,27 +194,10 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     const float left = ImGui::GetCursorPosX() + (avail - col) * 0.5f;
     const chains::ChainSpec& chain = selected_chain();
 
-    kit_vspace(1.2f);
+    kit_vspace(1.0f);
 
-    // The sum is the subject; the chain rides underneath as a quiet
-    // capsule — most senders live on one chain and shouldn't spend a
-    // form row on it.
-    kit_amount_field("##send-amount", m_amount.data(), m_amount.size(),
-        chain.symbol.c_str());
-
-    const float cap_w = em * 10.0f;
-    ImGui::SetCursorPosX(left + (col - cap_w) * 0.5f);
-    if (kit_select_begin("##send-chain", chain.name.c_str(), cap_w)) {
-        for (int i = 0; i < int(m_registry.all().size()); ++i) {
-            const chains::ChainSpec& c = m_registry.all()[std::size_t(i)];
-            if (kit_select_item(c.name.c_str(), i == m_chain_index))
-                m_chain_index = i;
-        }
-        kit_select_end();
-    }
-
-    kit_vspace(0.8f);
-
+    // The narrative of a payment: who first, then how much, then send
+    // — the recipient is the irreversible part and leads the form.
     ImGui::SetCursorPosX(left);
     ImGui::SetNextItemWidth(col);
     kit_address_field("##send-to", tr("send.to"), m_to.data(), m_to.size(),
@@ -225,6 +208,29 @@ void SendPage::draw_form(const i18n::Catalog& tr)
         = to_present && !crypto::eth_checksum_address(m_to.data()).empty();
     if (to_present && !to_valid)
         centered_caption(tr("send.err.address"));
+
+    kit_vspace(0.35f);
+
+    // The amount row carries the network as its badge: the coin being
+    // counted IS the selected chain's native coin.
+    ImGui::SetCursorPosX(left);
+    ImGui::SetNextItemWidth(col);
+    bool pick_chain = false;
+    kit_amount_field("##send-amount", m_amount.data(), m_amount.size(),
+        chain.name.c_str(), &pick_chain);
+    if (pick_chain)
+        ImGui::OpenPopup("##send-chain-pop");
+    if (ImGui::BeginPopup("##send-chain-pop")) {
+        ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
+        for (int i = 0; i < int(m_registry.all().size()); ++i) {
+            const chains::ChainSpec& c = m_registry.all()[std::size_t(i)];
+            if (ImGui::MenuItem(
+                    c.name.c_str(), c.symbol.c_str(), i == m_chain_index))
+                m_chain_index = i;
+        }
+        ImGui::PopItemFlag();
+        ImGui::EndPopup();
+    }
 
     kit_vspace(0.6f);
 

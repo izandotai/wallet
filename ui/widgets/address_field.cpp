@@ -62,6 +62,9 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
     const float w = ImGui::CalcItemWidth();
 
     ImGui::PushID(id);
+    // Let the trailing glyph win the hover contest over the input —
+    // without this the text field swallows every click on the button.
+    ImGui::SetNextItemAllowOverlap();
     ImGui::SetNextItemWidth(w);
     bool submitted = kit_text_field("##text", hint, buf, size);
     const ImVec2 fmin = ImGui::GetItemRectMin();
@@ -76,6 +79,8 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
         ImVec2(fmax.x - d - em * 0.3f, (fmin.y + fmax.y - d) * 0.5f));
     ImGui::InvisibleButton("##glyph", ImVec2(d, d));
     const bool hovered = ImGui::IsItemHovered();
+    if (hovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     if (ImGui::IsItemClicked()) {
         if (empty)
             paste_into(buf, size);
