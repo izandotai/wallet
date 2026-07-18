@@ -16,4 +16,9 @@ void kit_copy_text(const char* id, const char* full, const char* hint,
 void kit_copy_text_right(const char* id, const char* full, const char* hint,
     const char* copied_label, float reserve_right_em = 0.0f);
 
+// Same, centered in the current content region — for dialogs built on
+// a center axis.
+void kit_copy_text_centered(const char* id, const char* full, const char* hint,
+    const char* copied_label);
+
 }

@@ -14,8 +14,10 @@ namespace {
 
     constexpr double kFeedbackSeconds = 1.6;
 
+    enum class Align { Left, Right, Center };
+
     void copy_text_impl(const char* id, const char* full, const char* hint,
-        const char* copied_label, bool right_align, float reserve_right_em)
+        const char* copied_label, Align align, float reserve_right_em)
     {
         ImGuiStorage* storage = ImGui::GetStateStorage();
         const ImGuiID key = ImGui::GetID(id);
@@ -30,12 +32,17 @@ namespace {
         const float avail = ImGui::GetContentRegionAvail().x - gap - reserve;
         const std::string text
             = kit_elide_middle(fresh ? copied_label : full, avail);
-        if (right_align) {
+        if (align == Align::Right) {
             const float min_x = ImGui::GetCursorPosX() + gap;
             const float edge = ImGui::GetCursorPosX()
                 + ImGui::GetContentRegionAvail().x - reserve;
             const float x = edge - ImGui::CalcTextSize(text.c_str()).x;
             ImGui::SetCursorPosX(x > min_x ? x : min_x);
+        } else if (align == Align::Center) {
+            const float slack = ImGui::GetContentRegionAvail().x
+                - ImGui::CalcTextSize(text.c_str()).x;
+            if (slack > 0.0f)
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + slack * 0.5f);
         }
         if (fresh) {
             ImGui::TextColored(kit_accent(), "%s", text.c_str());
@@ -57,13 +64,20 @@ namespace {
 void kit_copy_text(const char* id, const char* full, const char* hint,
     const char* copied_label)
 {
-    copy_text_impl(id, full, hint, copied_label, false, 0.0f);
+    copy_text_impl(id, full, hint, copied_label, Align::Left, 0.0f);
 }
 
 void kit_copy_text_right(const char* id, const char* full, const char* hint,
     const char* copied_label, float reserve_right_em)
 {
-    copy_text_impl(id, full, hint, copied_label, true, reserve_right_em);
+    copy_text_impl(
+        id, full, hint, copied_label, Align::Right, reserve_right_em);
+}
+
+void kit_copy_text_centered(const char* id, const char* full, const char* hint,
+    const char* copied_label)
+{
+    copy_text_impl(id, full, hint, copied_label, Align::Center, 0.0f);
 }
 
 }

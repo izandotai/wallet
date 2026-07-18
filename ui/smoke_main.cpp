@@ -287,8 +287,12 @@ void draw_kit_gallery()
             ImGui::SetCursorPosX((ImGui::GetWindowWidth() - side) * 0.5f);
             kit_qr(kAddrs[qr_row], 9.0f);
             kit_vspace(0.4f);
-            kit_copy_text("##demo-qr-addr", kAddrs[qr_row], "复制", "已复制");
+            kit_copy_text_centered(
+                "##demo-qr-addr", kAddrs[qr_row], "复制", "已复制");
             kit_vspace(0.3f);
+            const float bw = ImGui::CalcTextSize("返回").x
+                + ImGui::GetStyle().FramePadding.x * 2.0f;
+            ImGui::SetCursorPosX((ImGui::GetWindowWidth() - bw) * 0.5f);
             if (kit_subtle_button("返回"))
                 kit_dialog_close();
         }

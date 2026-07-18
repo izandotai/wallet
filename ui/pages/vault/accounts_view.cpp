@@ -131,9 +131,12 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
             ImGui::SetCursorPosX((ImGui::GetWindowWidth() - qr_side) * 0.5f);
             kit_qr(addr.c_str(), 9.0f);
             kit_vspace(0.4f);
-            kit_copy_text(
+            kit_copy_text_centered(
                 "##qr-addr", addr.c_str(), tr("ui.copy"), tr("ui.copied"));
             kit_vspace(0.3f);
+            const float button_w = ImGui::CalcTextSize(tr("ui.back")).x
+                + ImGui::GetStyle().FramePadding.x * 2.0f;
+            ImGui::SetCursorPosX((ImGui::GetWindowWidth() - button_w) * 0.5f);
             if (kit_subtle_button(tr("ui.back")))
                 kit_dialog_close();
         }
