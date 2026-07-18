@@ -264,11 +264,18 @@ void draw_kit_gallery()
     kit_group_end();
     kit_vspace();
 
+    kit_heading("身份头 identity");
+    kit_group_begin("##sec-identity");
+    kit_identity(
+        "main", "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "$1,234.56");
+    kit_group_end();
+    kit_vspace();
+
     kit_heading("资产行 asset_row");
     kit_group_begin("##sec-assets");
-    kit_asset_row("##a0", "ETH", "Ethereum", "0.0012", true, "");
+    kit_asset_row("##a0", "ETH", "Ethereum", "0.0012", true, "", "$4.21");
     kit_hairline();
-    kit_asset_row("##a1", "USDC.e", "Polygon", "0.10", true, "");
+    kit_asset_row("##a1", "USDC.e", "Polygon", "0.10", true, "", "$0.10");
     kit_hairline();
     kit_asset_row("##a2", "SOL", "Solana", "", false, "链无响应");
     kit_group_end();

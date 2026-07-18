@@ -18,6 +18,7 @@
 #include "ui/widgets/dialog.hpp"
 #include "ui/widgets/empty_state.hpp"
 #include "ui/widgets/hyperlink.hpp"
+#include "ui/widgets/identity.hpp"
 #include "ui/widgets/label.hpp"
 #include "ui/widgets/list_row.hpp"
 #include "ui/widgets/pill.hpp"

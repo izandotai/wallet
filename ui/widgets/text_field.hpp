@@ -3,6 +3,8 @@
 #include <array>
 #include <cstddef>
 
+#include <imgui.h>
+
 #include "core/secure/secure_bytes.hpp"
 
 namespace izan::ui {
@@ -18,6 +20,12 @@ bool kit_text_field(
 // (amount row, address row) and must wear the same clothes.
 void kit_field_style_push();
 void kit_field_style_pop();
+
+// The dress painted as a bare rectangle — for composite fields that
+// place a narrower, frameless input inside a wider frame so text and
+// caret stop before the trailing controls instead of running under
+// them.
+void kit_field_frame(const ImVec2& pos, const ImVec2& size);
 
 // A password field that reports its focus into the page's secret-focus
 // aggregate — the flag the IME detach rides on. Field-level, not

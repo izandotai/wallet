@@ -31,6 +31,7 @@ private:
         std::string chain;
         std::string symbol;
         std::string amount; // formatted; empty when !ok
+        std::string fiat;   // "$123.45"; empty when unpriced
         std::string error;
         bool ok = false;
     };
@@ -39,6 +40,7 @@ private:
         std::atomic<int> phase { 0 }; // 0 running, 1 ok, 2 failed
         std::string error;
         std::vector<Row> rows;
+        std::string total;            // summed USD; empty when prices failed
     };
 
     void refresh(const std::string& address);
@@ -48,6 +50,7 @@ private:
     std::string m_followed;    // the address the shown rows belong to
     double m_fetched_at = 0.0; // frame clock at the last snapshot
     std::vector<Row> m_rows;
+    std::string m_total;       // the header's hero number
     std::shared_ptr<Job> m_job;
     std::string m_status;
     bool m_status_is_key = false;

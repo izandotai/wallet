@@ -231,6 +231,7 @@ add_library(izan_domain STATIC
     domain/config/config_trust.cpp
     domain/assets/balances.cpp
     domain/assets/portfolio.cpp
+    domain/assets/prices.cpp
     domain/assets/token_registry.cpp
     domain/tx/eip1559.cpp
     domain/tx/txflow.cpp
@@ -323,6 +324,7 @@ if(IZAN_BUILD_UI AND WIN32)
         ui/widgets/dialog.cpp
         ui/widgets/empty_state.cpp
         ui/widgets/hyperlink.cpp
+        ui/widgets/identity.cpp
         ui/widgets/label.cpp
         ui/widgets/list_row.cpp
         ui/widgets/pill.cpp
@@ -389,6 +391,7 @@ add_executable(izan_tests
     tests/abi_test.cpp
     tests/assets_test.cpp
     tests/portfolio_test.cpp
+    tests/prices_test.cpp
     tests/config_trust_test.cpp
     tests/i18n_test.cpp
     tests/tx_test.cpp

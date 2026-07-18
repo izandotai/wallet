@@ -1,5 +1,7 @@
 #include "ui/pages/portfolio_page.hpp"
 
+#include <algorithm>
+#include <charconv>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -8,6 +10,7 @@
 #include <imgui.h>
 
 #include "core/units/decimal.hpp"
+#include "domain/assets/prices.hpp"
 #include "domain/config/config_trust.hpp"
 #include "ui/widgets/kit.hpp"
 
@@ -23,6 +26,23 @@ namespace {
         std::ostringstream ss;
         ss << f.rdbuf();
         return ss.str();
+    }
+
+    // "$1,234.56" — two decimals, thousands grouped. Fiat is a read of
+    // the moment, not an accounting figure; two decimals is honest.
+    std::string format_usd(double v)
+    {
+        char raw[64];
+        std::snprintf(raw, sizeof raw, "%.2f", v);
+        const std::string s(raw);
+        const auto dot = s.find('.');
+        std::string out;
+        for (std::size_t i = 0; i < dot; ++i) {
+            if (i && (dot - i) % 3 == 0)
+                out += ',';
+            out += s[i];
+        }
+        return "$" + out + s.substr(dot);
     }
 
 }
@@ -66,6 +86,38 @@ void PortfolioPage::refresh(const std::string& address)
                     row.error = h.error;
                 job->rows.push_back(std::move(row));
             }
+            // Fiat is garnish over the on-chain numbers: a price feed
+            // failure leaves the dollar column empty and says nothing.
+            try {
+                std::vector<std::string> ids;
+                for (const Row& row : job->rows) {
+                    const std::string id = assets::coingecko_id(row.symbol);
+                    if (row.ok && !id.empty()
+                        && std::find(ids.begin(), ids.end(), id) == ids.end())
+                        ids.push_back(id);
+                }
+                const auto prices = assets::fetch_usd_prices(ids);
+                double total = 0.0;
+                bool any = false;
+                for (Row& row : job->rows) {
+                    const std::string id = assets::coingecko_id(row.symbol);
+                    const auto hit = prices.find(id);
+                    if (!row.ok || hit == prices.end())
+                        continue;
+                    double amount = 0.0;
+                    const auto [end, ec] = std::from_chars(row.amount.data(),
+                        row.amount.data() + row.amount.size(), amount);
+                    if (ec != std::errc())
+                        continue;
+                    const double worth = amount * hit->second;
+                    row.fiat = format_usd(worth);
+                    total += worth;
+                    any = true;
+                }
+                if (any)
+                    job->total = format_usd(total);
+            } catch (const std::exception&) {
+            }
             job->phase.store(1);
         } catch (const std::exception& e) {
             job->error = e.what();
@@ -80,6 +132,7 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
         const int phase = m_job->phase.load();
         if (phase == 1) {
             m_rows = std::move(m_job->rows);
+            m_total = std::move(m_job->total);
             m_fetched_at = ImGui::GetTime();
             m_status.clear();
             m_job.reset();
@@ -112,42 +165,49 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
     if (mine != m_followed) {
         m_followed = mine;
         m_rows.clear();
+        m_total.clear();
         m_status.clear();
         m_fetched_at = 0.0;
         refresh(mine);
     }
 
+    // Who, then the one number that matters: identity stacked on the
+    // center axis, total worth as the hero line.
     if (!m_vault.active_name().empty()) {
-        const float av = em * 1.7f;
-        kit_avatar(m_vault.active_name().c_str(), av);
-        ImGui::SameLine(0.0f, em * 0.5f);
-        ImGui::BeginGroup();
-        kit_heading(m_vault.active_name().c_str());
-        if (!mine.empty()) {
-            ImGui::PushFont(nullptr, kit_caption_size());
-            ImGui::TextDisabled("%s",
-                kit_elide_middle(
-                    mine.c_str(), avail - av - em * 1.0f, kit_caption_size())
-                    .c_str());
-            ImGui::PopFont();
-        }
-        ImGui::EndGroup();
+        kit_vspace(0.5f);
+        kit_identity(m_vault.active_name().c_str(),
+            mine.empty() ? nullptr : mine.c_str(),
+            m_total.empty() ? nullptr : m_total.c_str());
     }
 
-    // Control line: refresh, with the age of the numbers beside it.
+    // Control line, centered under the identity: refresh with the age
+    // of the numbers beside it.
     kit_vspace(0.25f);
     if (busy) {
+        const float r = em * 0.55f;
+        ImGui::SetCursorPosX(
+            ImGui::GetCursorPosX() + (avail - r * 2.0f) * 0.5f);
         kit_spinner(0.55f);
     } else if (!m_followed.empty()) {
-        if (kit_link_button(tr("portfolio.refresh")))
-            refresh(m_followed);
+        char ago[32] = "";
         if (m_fetched_at > 0.0) {
             const int age = int(ImGui::GetTime() - m_fetched_at);
-            char ago[32];
             if (age < 60)
                 std::snprintf(ago, sizeof ago, "%ds", age);
             else
                 std::snprintf(ago, sizeof ago, "%dm", age / 60);
+        }
+        const float line_w = ImGui::CalcTextSize(tr("portfolio.refresh")).x
+            + ImGui::GetStyle().FramePadding.x * 2.0f
+            + (*ago ? ImGui::CalcTextSize(ago).x
+                        + ImGui::GetStyle().ItemSpacing.x
+                    : 0.0f);
+        const float slack = avail - line_w;
+        if (slack > 0.0f)
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + slack * 0.5f);
+        if (kit_link_button(tr("portfolio.refresh")))
+            refresh(m_followed);
+        if (*ago) {
             ImGui::SameLine();
             kit_caption(ago);
         }
@@ -167,7 +227,8 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 kit_hairline();
             const std::string id = row.chain + "/" + row.symbol;
             kit_asset_row(id.c_str(), row.symbol.c_str(), row.chain.c_str(),
-                row.amount.c_str(), row.ok, tr("portfolio.unreadable"));
+                row.amount.c_str(), row.ok, tr("portfolio.unreadable"),
+                row.fiat.c_str());
         }
         kit_group_end();
     } else if (!busy && m_status.empty()) {

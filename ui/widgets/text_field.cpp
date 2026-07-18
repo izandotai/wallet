@@ -28,6 +28,20 @@ void kit_field_style_pop()
     ImGui::PopStyleColor(2);
 }
 
+void kit_field_frame(const ImVec2& pos, const ImVec2& size)
+{
+    const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    const ImVec2 max(pos.x + size.x, pos.y + size.y);
+    const float r = ImGui::GetStyle().FrameRounding;
+    draw->AddRectFilled(pos, max,
+        ImGui::GetColorU32(kit_blend(bg, text, kit_is_dark() ? 0.055f : 0.04f)),
+        r);
+    draw->AddRect(pos, max,
+        ImGui::GetColorU32(ImGui::GetStyleColorVec4(ImGuiCol_Separator)), r);
+}
+
 bool kit_text_field(
     const char* id, const char* hint, char* buf, std::size_t size)
 {

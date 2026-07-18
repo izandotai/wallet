@@ -64,39 +64,45 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
 {
     const float em = ImGui::GetFontSize();
     const float w = ImGui::CalcItemWidth();
+    const float h = ImGui::GetFrameHeight();
+    const float d = em * 1.1f;
 
     ImGui::PushID(id);
-    // Let the trailing glyph win the hover contest over the input —
-    // without this the text field swallows every click on the button.
-    ImGui::SetNextItemAllowOverlap();
-    ImGui::SetNextItemWidth(w);
-    bool submitted = kit_text_field("##text", hint, buf, size);
-    const ImVec2 fmin = ImGui::GetItemRectMin();
-    const ImVec2 fmax = ImGui::GetItemRectMax();
+
+    // The frame spans the full row; the input stops before the glyph
+    // zone so text and caret never run under the button.
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    kit_field_frame(pos, ImVec2(w, h));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    ImGui::SetNextItemWidth(w - d - em * 0.55f);
+    const bool submitted = ImGui::InputTextWithHint(
+        "##text", hint, buf, size, ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+    const ImVec2 fmax(pos.x + w, pos.y + h);
     ImGui::OpenPopupOnItemClick("##menu", ImGuiPopupFlags_MouseButtonRight);
 
     // A refused paste answers with a moment of danger-colored border —
     // a button that silently does nothing reads as a broken button.
     ImGuiStorage* store = ImGui::GetStateStorage();
     const ImGuiID reject_key = ImGui::GetID("##rejected-at");
-    auto reject = [&] { store->SetFloat(reject_key, float(ImGui::GetTime())); };
     auto try_paste = [&] {
         if (!paste_into(buf, size, validate))
-            reject();
+            store->SetFloat(reject_key, float(ImGui::GetTime()));
     };
-    const float rejected_at = store->GetFloat(reject_key, -1.0f);
-    if (rejected_at >= 0.0f && ImGui::GetTime() - rejected_at < 0.8) {
-        ImGui::GetWindowDrawList()->AddRect(fmin, fmax,
+    const float rejected_at = store->GetFloat(reject_key, -1.0e9f);
+    if (ImGui::GetTime() - rejected_at < 0.8) {
+        ImGui::GetWindowDrawList()->AddRect(pos, fmax,
             ImGui::GetColorU32(kit_danger()), ImGui::GetStyle().FrameRounding,
             0, 2.0f);
     }
 
     // The trailing glyph: paste into an empty field, clear a full one.
     const bool empty = buf[0] == '\0';
-    const float d = em * 1.1f;
     const ImVec2 keep = ImGui::GetCursorScreenPos();
     ImGui::SetCursorScreenPos(
-        ImVec2(fmax.x - d - em * 0.3f, (fmin.y + fmax.y - d) * 0.5f));
+        ImVec2(fmax.x - d - em * 0.3f, (pos.y + fmax.y - d) * 0.5f));
     ImGui::InvisibleButton("##glyph", ImVec2(d, d));
     const bool hovered = ImGui::IsItemHovered();
     if (hovered)
