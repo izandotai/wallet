@@ -21,6 +21,7 @@
 #include "ui/widgets/identity.hpp"
 #include "ui/widgets/label.hpp"
 #include "ui/widgets/list_row.hpp"
+#include "ui/widgets/menu.hpp"
 #include "ui/widgets/pill.hpp"
 #include "ui/widgets/qr.hpp"
 #include "ui/widgets/result_mark.hpp"

@@ -130,7 +130,10 @@ bool kit_link_button(const char* label)
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,
         ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
     push_button_shape();
-    const bool clicked = ImGui::Button(label);
+    // Link buttons keep the width discipline too — a hover pill around
+    // two characters is the same squat blob in a different coat.
+    const bool clicked
+        = ImGui::Button(label, ImVec2(resolved_width(label, 0.0f), 0.0f));
     pop_button_shape();
     ImGui::PopStyleColor(4);
     return clicked;

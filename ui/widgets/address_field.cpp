@@ -6,6 +6,7 @@
 #include <imgui.h>
 
 #include "ui/widgets/design.hpp"
+#include "ui/widgets/menu.hpp"
 #include "ui/widgets/text_field.hpp"
 
 namespace izan::ui {
@@ -123,16 +124,14 @@ bool kit_address_field(const char* id, const char* hint, char* buf,
         draw_clear_glyph(draw, gpos, d, tone);
     kit_cursor_restore(keep);
 
-    if (ImGui::BeginPopup("##menu")) {
-        ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
-        if (ImGui::MenuItem(paste_label))
+    if (kit_menu_begin("##menu")) {
+        if (kit_menu_item(paste_label))
             try_paste();
-        if (ImGui::MenuItem(copy_label, nullptr, false, !empty))
+        if (kit_menu_item(copy_label, nullptr, false, !empty))
             ImGui::SetClipboardText(buf);
-        if (ImGui::MenuItem(clear_label, nullptr, false, !empty))
+        if (kit_menu_item(clear_label, nullptr, false, !empty))
             buf[0] = '\0';
-        ImGui::PopItemFlag();
-        ImGui::EndPopup();
+        kit_menu_end();
     }
     ImGui::PopID();
     return submitted;

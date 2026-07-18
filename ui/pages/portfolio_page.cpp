@@ -173,7 +173,8 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
     // nothing to introduce, so it shows the empty state alone.
     if (!mine.empty()) {
         kit_vspace(0.5f);
-        kit_identity(m_vault.active_name().c_str(), mine.c_str());
+        kit_identity(m_vault.active_name().c_str(), mine.c_str(), nullptr, 2.4f,
+            tr("ui.copy"), tr("ui.copied"));
     }
 
     // Controls under the identity, each on its own centered line.
@@ -187,8 +188,7 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
         centered_x(em * 1.1f);
         kit_spinner(0.55f);
     } else if (!m_followed.empty()) {
-        centered_x(ImGui::CalcTextSize(tr("portfolio.refresh")).x
-            + ImGui::GetStyle().FramePadding.x * 2.0f);
+        centered_x(kit_button_width(tr("portfolio.refresh")));
         if (kit_link_button(tr("portfolio.refresh")))
             refresh(m_followed);
         if (m_fetched_at > 0.0) {

@@ -5,6 +5,7 @@
 #include <imgui.h>
 
 #include "ui/widgets/avatar.hpp"
+#include "ui/widgets/copy_text.hpp"
 #include "ui/widgets/design.hpp"
 #include "ui/widgets/label.hpp"
 
@@ -20,8 +21,8 @@ namespace {
 
 }
 
-void kit_identity(
-    const char* title, const char* subtitle, const char* hero, float avatar_em)
+void kit_identity(const char* title, const char* subtitle, const char* hero,
+    float avatar_em, const char* copy_hint, const char* copied_label)
 {
     const float em = ImGui::GetFontSize();
     const float avail = ImGui::GetContentRegionAvail().x;
@@ -38,12 +39,17 @@ void kit_identity(
     ImGui::PopFont();
 
     if (subtitle && *subtitle) {
-        ImGui::PushFont(nullptr, kit_caption_size());
-        const std::string shown
-            = kit_elide_middle(subtitle, avail - em, kit_caption_size());
-        centered(ImGui::CalcTextSize(shown.c_str()).x, avail, x0);
-        ImGui::TextDisabled("%s", shown.c_str());
-        ImGui::PopFont();
+        if (copy_hint && copied_label) {
+            kit_copy_text_centered(
+                "##identity-sub", subtitle, copy_hint, copied_label);
+        } else {
+            ImGui::PushFont(nullptr, kit_caption_size());
+            const std::string shown
+                = kit_elide_middle(subtitle, avail - em, kit_caption_size());
+            centered(ImGui::CalcTextSize(shown.c_str()).x, avail, x0);
+            ImGui::TextDisabled("%s", shown.c_str());
+            ImGui::PopFont();
+        }
     }
 
     if (hero && *hero) {

@@ -236,16 +236,14 @@ void SendPage::draw_form(const i18n::Catalog& tr)
         chain.name.c_str(), &pick_chain);
     if (pick_chain)
         ImGui::OpenPopup("##send-chain-pop");
-    if (ImGui::BeginPopup("##send-chain-pop")) {
-        ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
+    if (kit_menu_begin("##send-chain-pop")) {
         for (int i = 0; i < int(m_registry.all().size()); ++i) {
             const chains::ChainSpec& c = m_registry.all()[std::size_t(i)];
-            if (ImGui::MenuItem(
+            if (kit_menu_item(
                     c.name.c_str(), c.symbol.c_str(), i == m_chain_index))
                 m_chain_index = i;
         }
-        ImGui::PopItemFlag();
-        ImGui::EndPopup();
+        kit_menu_end();
     }
 
     kit_vspace(0.6f);

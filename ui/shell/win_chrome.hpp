@@ -14,7 +14,6 @@ namespace izan::ui {
 // Everything is a no-op off Windows.
 
 enum class WindowControlIcon {
-    Center, // recenter on the work area; no native caption role
     Minimize,
     Maximize,
     Restore,

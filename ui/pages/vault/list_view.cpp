@@ -45,29 +45,26 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
             ev.id = w.id;
         }
 
-        if (ImGui::BeginPopupContextItem("##card-menu")) {
-            // The click that opened this menu leaves a keyboard-nav
-            // cursor behind; a mouse-born menu must not show a focus
-            // ring on its first item.
-            ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
-            if (ImGui::MenuItem(tr("wallet.activate")) && !is_active) {
+        ImGui::OpenPopupOnItemClick(
+            "##card-menu", ImGuiPopupFlags_MouseButtonRight);
+        if (kit_menu_begin("##card-menu")) {
+            if (kit_menu_item(tr("wallet.activate")) && !is_active) {
                 ev.type = Event::Type::Activate;
                 ev.id = w.id;
             }
-            if (ImGui::MenuItem(tr("wallet.rename"))) {
+            if (kit_menu_item(tr("wallet.rename"))) {
                 m_target = w.id;
                 sodium_memzero(m_rename.data(), m_rename.size());
                 std::memcpy(m_rename.data(), w.name.data(),
                     std::min(w.name.size(), m_rename.size() - 1));
                 m_open_rename = true;
             }
-            if (ImGui::MenuItem(tr("wallet.delete"))) {
+            if (kit_menu_item(tr("wallet.delete"))) {
                 m_target = w.id;
                 sodium_memzero(m_confirm.data(), m_confirm.size());
                 m_open_delete = true;
             }
-            ImGui::PopItemFlag();
-            ImGui::EndPopup();
+            kit_menu_end();
         }
         ImGui::PopID();
     }

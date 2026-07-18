@@ -327,6 +327,7 @@ if(IZAN_BUILD_UI AND WIN32)
         ui/widgets/identity.cpp
         ui/widgets/label.cpp
         ui/widgets/list_row.cpp
+        ui/widgets/menu.cpp
         ui/widgets/pill.cpp
         ui/widgets/qr.cpp
         ui/widgets/result_mark.cpp
