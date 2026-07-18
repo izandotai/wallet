@@ -194,7 +194,13 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     const float left = ImGui::GetCursorPosX() + (avail - col) * 0.5f;
     const chains::ChainSpec& chain = selected_chain();
 
-    kit_vspace(1.0f);
+    kit_vspace(0.8f);
+
+    // The page's identity mark, echoed by the confirmation dialog.
+    ImGui::PushFont(nullptr, kit_snap(em * 2.1f));
+    centered_text("📤", false);
+    ImGui::PopFont();
+    kit_vspace(0.6f);
 
     // The narrative of a payment: who first, then how much, then send
     // — the recipient is the irreversible part and leads the form.

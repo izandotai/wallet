@@ -7,6 +7,37 @@
 
 namespace izan::ui {
 
+namespace {
+
+    // The field normalizes as you type: only digits and one decimal
+    // point survive, and a leading "." becomes "0." on the spot — the
+    // number on screen is always the number that will be parsed.
+    int amount_callback(ImGuiInputTextCallbackData* data)
+    {
+        if (data->EventFlag == ImGuiInputTextFlags_CallbackCharFilter) {
+            const ImWchar c = data->EventChar;
+            return (c >= '0' && c <= '9') || c == '.' ? 0 : 1;
+        }
+        if (data->EventFlag == ImGuiInputTextFlags_CallbackEdit) {
+            if (data->BufTextLen > 0 && data->Buf[0] == '.')
+                data->InsertChars(0, "0");
+            bool seen_dot = false;
+            for (int i = 0; i < data->BufTextLen;) {
+                if (data->Buf[i] == '.') {
+                    if (seen_dot) {
+                        data->DeleteChars(i, 1);
+                        continue;
+                    }
+                    seen_dot = true;
+                }
+                ++i;
+            }
+        }
+        return 0;
+    }
+
+}
+
 bool kit_amount_field(const char* id, char* buf, std::size_t size,
     const char* badge, bool* badge_clicked)
 {
@@ -22,8 +53,10 @@ bool kit_amount_field(const char* id, char* buf, std::size_t size,
     ImGui::SetNextItemAllowOverlap();
     ImGui::SetNextItemWidth(w);
     const bool submitted = ImGui::InputTextWithHint("##in", "0", buf, size,
-        ImGuiInputTextFlags_CharsDecimal
-            | ImGuiInputTextFlags_EnterReturnsTrue);
+        ImGuiInputTextFlags_EnterReturnsTrue
+            | ImGuiInputTextFlags_CallbackCharFilter
+            | ImGuiInputTextFlags_CallbackEdit,
+        amount_callback);
     ImGui::PopFont();
     ImGui::PopStyleVar();
     kit_field_style_pop();
