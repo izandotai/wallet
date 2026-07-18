@@ -27,9 +27,10 @@ private:
     struct Row {
         std::string hash;
         std::string counterparty;
-        std::string note;   // "Chain · 07-18 19:02"
-        std::string amount; // "+0.05 ETH", signed
-        std::string link;   // explorer URL, may be empty
+        std::string note;      // "Chain · 07-18 19:02"
+        std::string when_hint; // the full moment in the user's clock
+        std::string amount;    // "+0.05 ETH", signed
+        std::string link;      // explorer URL, may be empty
         bool incoming = false;
         bool failed = false;
     };

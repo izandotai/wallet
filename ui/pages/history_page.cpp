@@ -10,6 +10,11 @@
 
 #include <imgui.h>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 #include "core/units/decimal.hpp"
 #include "domain/assets/history.hpp"
 #include "ui/widgets/kit.hpp"
@@ -33,6 +38,37 @@ namespace {
         const std::chrono::sys_seconds tp { std::chrono::seconds(
             unix_seconds) };
         return std::format("{:%m-%d %H:%M}", tp);
+    }
+
+    // The row wears a terse UTC moment; the tooltip owes the user the
+    // whole date in their own clock. Windows is the timezone authority
+    // here — libstdc++'s tzdb cannot see the OS setting, so the
+    // conversion goes through SYSTEMTIME, DST rules included.
+    std::string local_moment_of(uint64_t unix_seconds)
+    {
+        if (!unix_seconds)
+            return {};
+        const uint64_t ticks
+            = unix_seconds * 10000000ull + 116444736000000000ull;
+        const FILETIME utc_ft { DWORD(ticks & 0xffffffffull),
+            DWORD(ticks >> 32) };
+        SYSTEMTIME utc {}, local {};
+        if (!FileTimeToSystemTime(&utc_ft, &utc)
+            || !SystemTimeToTzSpecificLocalTime(nullptr, &utc, &local))
+            return {};
+        FILETIME local_ft {};
+        if (!SystemTimeToFileTime(&local, &local_ft))
+            return {};
+        const int64_t local_ticks = int64_t(
+            (uint64_t(local_ft.dwHighDateTime) << 32) | local_ft.dwLowDateTime);
+        const int offset_min
+            = int((local_ticks - int64_t(ticks)) / 600000000ll);
+        const int abs_min = offset_min < 0 ? -offset_min : offset_min;
+        return std::format(
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{}{:02}:{:02})",
+            local.wYear, local.wMonth, local.wDay, local.wHour, local.wMinute,
+            local.wSecond, offset_min < 0 ? '-' : '+', abs_min / 60,
+            abs_min % 60);
     }
 
 }
@@ -101,6 +137,7 @@ void HistoryPage::refresh(const std::string& address)
                 row.incoming = t.rec.incoming;
                 row.failed = t.rec.failed;
                 row.note = t.chain->name + " · " + moment_of(t.rec.time);
+                row.when_hint = local_moment_of(t.rec.time);
                 const bool token = !t.rec.token_symbol.empty();
                 row.amount = (t.rec.incoming ? "+" : "−")
                     + units::format_units_display(t.rec.value,
@@ -206,11 +243,10 @@ void HistoryPage::draw(const i18n::Catalog& tr)
             ImGui::PushID(int(i));
             if (kit_tx_row(row.hash.c_str(), row.incoming,
                     row.counterparty.c_str(), row.note.c_str(),
-                    row.amount.c_str(), row.failed)
+                    row.amount.c_str(), row.failed, row.hash.c_str(),
+                    row.when_hint.empty() ? nullptr : row.when_hint.c_str())
                 && !row.link.empty())
                 kit_open_url(row.link.c_str());
-            if (ImGui::IsItemHovered())
-                kit_tooltip(row.hash.c_str());
             ImGui::PopID();
         }
         kit_group_end();
