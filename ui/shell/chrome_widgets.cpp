@@ -139,7 +139,9 @@ void draw_menu_popup_shadows(const ChromeState& app)
         const bool popup = (window->Flags & ImGuiWindowFlags_Popup) != 0;
         const bool modal = (window->Flags & ImGuiWindowFlags_Modal) != 0;
         const bool tooltip = (window->Flags & ImGuiWindowFlags_Tooltip) != 0;
-        if (!popup || modal || tooltip)
+        // Modals wear the same soft shadow as menus — one depth
+        // language for everything that floats.
+        if ((!popup && !modal) || tooltip)
             continue;
         popup_rects.emplace_back(window,
             ImRect(window->Pos,

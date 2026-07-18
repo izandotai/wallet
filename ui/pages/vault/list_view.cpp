@@ -6,8 +6,8 @@
 #include <sodium.h>
 
 #include "ui/wallet/presets.hpp"
+#include "ui/widgets/dialog.hpp"
 #include "ui/widgets/kit.hpp"
-#include "ui/widgets/secret_field.hpp"
 
 namespace izan::ui {
 
@@ -122,73 +122,63 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
     if (kit_subtle_button(tr("vault.import")))
         ev.type = Event::Type::Import;
 
-    // Modals are opened outside the card loop so their ids are stable.
+    // Dialogs are opened outside the card loop so their ids are stable.
     if (m_open_rename) {
-        ImGui::OpenPopup("##rename-wallet");
+        kit_dialog_open("##rename-wallet");
         m_open_rename = false;
     }
     if (m_open_delete) {
-        ImGui::OpenPopup("##delete-wallet");
+        kit_dialog_open("##delete-wallet");
         m_open_delete = false;
     }
 
-    if (ImGui::BeginPopupModal(
-            "##rename-wallet", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape))
-            ImGui::CloseCurrentPopup();
-        kit_title(tr("wallet.rename"));
-        kit_vspace(0.3f);
-        ImGui::SetNextItemWidth(em * 12.0f);
-        ImGui::InputTextWithHint("##rename-name", tr("wallet.name"),
-            m_rename.data(), m_rename.size());
-        kit_vspace(0.3f);
-        if (kit_subtle_button(tr("ui.cancel")))
-            ImGui::CloseCurrentPopup();
-        ImGui::SameLine();
-        if (kit_primary_button(tr("wallet.rename"))) {
+    std::string target_name = m_target;
+    for (const WalletEntry& w : store.wallets())
+        if (w.id == m_target)
+            target_name = w.name;
+
+    if (kit_dialog_begin("##rename-wallet")) {
+        kit_dialog_header_avatar(target_name.c_str(), tr("wallet.rename"));
+        kit_dialog_field_width();
+        const bool enter = ImGui::InputTextWithHint("##rename-name",
+            tr("wallet.name"), m_rename.data(), m_rename.size(),
+            ImGuiInputTextFlags_EnterReturnsTrue);
+        int choice = kit_dialog_buttons(tr("ui.cancel"), tr("wallet.rename"));
+        if (enter)
+            choice = 2;
+        if (choice == 2) {
             ev.type = Event::Type::Rename;
             ev.id = m_target;
             ev.name = std::string(
                 m_rename.data(), strnlen(m_rename.data(), m_rename.size()));
-            ImGui::CloseCurrentPopup();
         }
-        ImGui::EndPopup();
+        if (choice != 0)
+            kit_dialog_close();
+        kit_dialog_end();
     }
 
-    if (ImGui::BeginPopupModal(
-            "##delete-wallet", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    bool dismissed = false;
+    if (kit_dialog_begin("##delete-wallet", &dismissed)) {
+        if (dismissed)
             sodium_memzero(m_confirm.data(), m_confirm.size());
-            ImGui::CloseCurrentPopup();
-        }
-        std::string target_name = m_target;
-        for (const WalletEntry& w : store.wallets())
-            if (w.id == m_target)
-                target_name = w.name;
-        kit_title("⚠️");
-        ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + em * 16.0f);
-        ImGui::TextWrapped("%s", tr("wallet.delete.warn"));
-        ImGui::PopTextWrapPos();
-        kit_vspace(0.3f);
-        ImGui::TextUnformatted(target_name.c_str());
+        kit_dialog_header_avatar(
+            target_name.c_str(), target_name.c_str(), tr("wallet.delete.warn"));
         kit_caption(tr("wallet.delete.confirm"));
-        ImGui::SetNextItemWidth(em * 12.0f);
+        kit_dialog_field_width();
         ImGui::InputText("##confirm", m_confirm.data(), m_confirm.size());
         const std::string typed(
             m_confirm.data(), strnlen(m_confirm.data(), m_confirm.size()));
-        kit_vspace(0.3f);
-        if (kit_subtle_button(tr("ui.cancel")))
-            ImGui::CloseCurrentPopup();
-        ImGui::SameLine();
-        ImGui::BeginDisabled(typed != target_name);
-        if (kit_danger_button(tr("wallet.delete"))) {
+        const int choice = kit_dialog_buttons(
+            tr("ui.cancel"), tr("wallet.delete"), typed == target_name, true);
+        if (choice == 2) {
             ev.type = Event::Type::Delete;
             ev.id = m_target;
-            sodium_memzero(m_confirm.data(), m_confirm.size());
-            ImGui::CloseCurrentPopup();
         }
-        ImGui::EndDisabled();
-        ImGui::EndPopup();
+        if (choice != 0) {
+            sodium_memzero(m_confirm.data(), m_confirm.size());
+            kit_dialog_close();
+        }
+        kit_dialog_end();
     }
 
     ImGui::EndDisabled();

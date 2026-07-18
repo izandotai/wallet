@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <sodium.h>
 
+#include "ui/widgets/dialog.hpp"
 #include "ui/widgets/kit.hpp"
 #include "ui/widgets/secret_field.hpp"
 
@@ -143,41 +144,38 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     }
 
     if (m_open_backup) {
-        ImGui::OpenPopup("##backup-auth");
+        kit_dialog_open("##backup-auth");
         m_open_backup = false;
     }
-    if (ImGui::BeginPopupModal(
-            "##backup-auth", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    bool dismissed = false;
+    if (kit_dialog_begin("##backup-auth", &dismissed)) {
+        if (dismissed)
             sodium_memzero(m_pass.data(), m_pass.size());
-            ImGui::CloseCurrentPopup();
-        }
-        kit_title(tr("vault.backup"));
-        kit_vspace(0.3f);
-        ImGui::SetNextItemWidth(em * 12.0f);
+        kit_dialog_header_icon(
+            "🔒", tr("vault.backup"), tr("vault.warn.backup"));
+        kit_dialog_field_width();
         if (m_focus_backup) {
             ImGui::SetKeyboardFocusHere();
             m_focus_backup = false;
         }
-        bool submit = secret_field(
+        const bool enter = secret_field(
             "##backup-pass", m_pass, secret_focus, tr("vault.passphrase"));
-        kit_vspace(0.3f);
-        if (kit_subtle_button(tr("ui.cancel"))) {
-            sodium_memzero(m_pass.data(), m_pass.size());
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        submit |= kit_primary_button(tr("vault.backup"));
-        if (submit) {
+        int choice = kit_dialog_buttons(tr("ui.cancel"), tr("vault.backup"));
+        if (enter)
+            choice = 2;
+        if (choice == 2) {
             if (strnlen(m_pass.data(), m_pass.size()) == 0) {
                 ev.err = "vault.msg.empty_pass";
             } else {
                 ev.type = Event::Type::Backup;
                 ev.pass = take_secret(m_pass);
-                ImGui::CloseCurrentPopup();
+                kit_dialog_close();
             }
+        } else if (choice == 1) {
+            sodium_memzero(m_pass.data(), m_pass.size());
+            kit_dialog_close();
         }
-        ImGui::EndPopup();
+        kit_dialog_end();
     }
     return ev;
 }
