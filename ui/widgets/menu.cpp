@@ -57,39 +57,55 @@ bool kit_menu_item(
     return ImGui::MenuItem(label, trailing, selected, enabled);
 }
 
-bool kit_menu_item_icon(const char* avatar_name, const char* label,
-    const char* trailing, bool selected)
+float kit_menu_row_width(const char* label, const char* trailing)
 {
     const float em = ImGui::GetFontSize();
-    const float av = em * 1.2f;
-    const float row_h = em * 1.7f;
-    const float gap = em * 0.5f;
-    float w = av + gap + ImGui::CalcTextSize(label).x;
-    float trailing_w = 0.0f;
-    if (trailing && *trailing) {
-        trailing_w
-            = ImGui::GetFont()
+    float w = em * 0.95f + em * 0.55f + ImGui::CalcTextSize(label).x;
+    if (trailing && *trailing)
+        w += em * 1.6f
+            + ImGui::GetFont()
                   ->CalcTextSizeA(kit_caption_size(), FLT_MAX, 0.0f, trailing)
                   .x;
-        w += em * 1.6f + trailing_w;
-    }
+    return w;
+}
+
+bool kit_menu_item_icon(const char* swatch_name, const char* label,
+    const char* trailing, bool selected, float width)
+{
+    const float em = ImGui::GetFontSize();
+    const float sw = em * 0.95f;
+    const float row_h = em * 1.7f;
+    if (width <= 0.0f)
+        width = kit_menu_row_width(label, trailing);
 
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const bool clicked
-        = ImGui::Selectable("##row", selected, 0, ImVec2(w, row_h));
+        = ImGui::Selectable("##row", selected, 0, ImVec2(width, row_h));
     if (ImGui::IsItemHovered())
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
+    // The style-editor grammar: a flat color square speaks for the
+    // thing, the label names it, the trailing note keeps to the right
+    // edge every row shares.
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    kit_avatar_at(ImVec2(pos.x, pos.y + (row_h - av) * 0.5f), avatar_name, av);
-    draw->AddText(ImVec2(kit_snap(pos.x + av + gap),
+    const ImVec2 sp(kit_snap(pos.x), kit_snap(pos.y + (row_h - sw) * 0.5f));
+    draw->AddRectFilled(sp, ImVec2(sp.x + sw, sp.y + sw),
+        ImGui::GetColorU32(kit_identity_color(swatch_name)), sw * 0.22f);
+    draw->AddRect(
+        sp, ImVec2(sp.x + sw, sp.y + sw), IM_COL32(0, 0, 0, 40), sw * 0.22f);
+    draw->AddText(ImVec2(kit_snap(pos.x + sw + em * 0.55f),
                       kit_snap(pos.y + (row_h - em) * 0.5f)),
         ImGui::GetColorU32(ImGuiCol_Text), label);
-    if (trailing_w > 0.0f)
+    if (trailing && *trailing) {
+        const float trailing_w
+            = ImGui::GetFont()
+                  ->CalcTextSizeA(kit_caption_size(), FLT_MAX, 0.0f, trailing)
+                  .x;
         draw->AddText(ImGui::GetFont(), kit_caption_size(),
-            ImVec2(kit_snap(pos.x + w - trailing_w),
+            ImVec2(kit_snap(pos.x + width - trailing_w),
                 kit_snap(pos.y + (row_h - kit_caption_size()) * 0.5f)),
             ImGui::GetColorU32(ImGuiCol_TextDisabled), trailing);
+    }
     return clicked;
 }
 

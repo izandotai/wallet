@@ -6,7 +6,7 @@
 
 namespace izan::ui {
 
-void kit_avatar_at(ImVec2 pos, const char* name, float size)
+ImVec4 kit_identity_color(const char* name)
 {
     const DesignLanguage& dl = design();
     // Mint a stable hue from the name; saturation and value stay in a
@@ -18,6 +18,13 @@ void kit_avatar_at(ImVec2 pos, const char* name, float size)
     ImGui::ColorConvertHSVtoRGB(float(hash % 360u) / 360.0f, dl.avatar_sat,
         dl.avatar_val, color.x, color.y, color.z);
     color.w = 1.0f;
+    return color;
+}
+
+void kit_avatar_at(ImVec2 pos, const char* name, float size)
+{
+    const DesignLanguage& dl = design();
+    const ImVec4 color = kit_identity_color(name);
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
     draw->AddRectFilled(pos, ImVec2(pos.x + size, pos.y + size),

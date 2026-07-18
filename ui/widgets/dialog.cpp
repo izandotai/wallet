@@ -41,11 +41,21 @@ namespace {
                 ImVec2(max.x, min.y + wash), lit, lit, gone, gone);
         }
 
-        draw->AddLine(ImVec2(min.x + r, min.y + 1.0f),
-            ImVec2(max.x - r, min.y + 1.0f),
-            IM_COL32(255, 255, 255, dark ? dl.rim_alpha + 18 : 165));
-        draw->AddLine(ImVec2(min.x + r, max.y - 1.0f),
-            ImVec2(max.x - r, max.y - 1.0f), IM_COL32(0, 0, 0, dark ? 78 : 34));
+        // The metallic rim rides the full rounded contour — straight
+        // lines alone leave the corners bare. Crown light wraps down
+        // over the top arcs; floor shade wraps up over the bottom ones.
+        constexpr float kPi = 3.14159265f;
+        const float ri = r - 1.0f;
+        const ImU32 crown
+            = IM_COL32(255, 255, 255, dark ? dl.rim_alpha + 16 : 155);
+        const ImU32 floor_shade = IM_COL32(0, 0, 0, dark ? 66 : 28);
+        draw->PathArcTo(ImVec2(min.x + r, min.y + r), ri, kPi, kPi * 1.5f);
+        draw->PathArcTo(
+            ImVec2(max.x - r, min.y + r), ri, kPi * 1.5f, kPi * 2.0f);
+        draw->PathStroke(crown, 0, 1.0f);
+        draw->PathArcTo(ImVec2(max.x - r, max.y - r), ri, 0.0f, kPi * 0.5f);
+        draw->PathArcTo(ImVec2(min.x + r, max.y - r), ri, kPi * 0.5f, kPi);
+        draw->PathStroke(floor_shade, 0, 1.0f);
     }
 
     void push_dialog_style()

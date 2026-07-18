@@ -85,14 +85,14 @@ namespace {
             = { 0.020f, 0.017f, 0.014f, 0.011f, 0.0085f, 0.0065f, 0.0050f,
                   0.0038f, 0.0028f, 0.0020f, 0.0014f, 0.0010f };
         constexpr std::array<float, 14> kModalAlpha
-            = { 0.052f, 0.045f, 0.038f, 0.032f, 0.026f, 0.021f, 0.017f, 0.013f,
-                  0.010f, 0.0075f, 0.0055f, 0.0040f, 0.0028f, 0.0018f };
+            = { 0.032f, 0.028f, 0.024f, 0.020f, 0.016f, 0.013f, 0.010f, 0.008f,
+                  0.006f, 0.0045f, 0.0033f, 0.0024f, 0.0017f, 0.0011f };
         const float* alpha = modal ? kModalAlpha.data() : kMenuAlpha.data();
         const int layers
             = modal ? int(kModalAlpha.size()) : int(kMenuAlpha.size());
         const float spread_step = modal ? 3.4f : 1.75f;
         const float spread_base = modal ? 3.0f : 2.0f;
-        const float drop = modal ? 6.0f : 0.0f;
+        const float drop = modal ? 4.0f : 0.0f;
 
         const float base_rounding = ImGui::GetStyle().PopupRounding;
         for (int index = layers - 1; index >= 0; --index) {

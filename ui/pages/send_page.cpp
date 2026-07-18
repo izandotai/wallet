@@ -277,6 +277,12 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     if (pick_asset)
         ImGui::OpenPopup("##send-asset-pop");
     if (kit_menu_begin("##send-asset-pop")) {
+        // One width for every row, or the highlights come out ragged.
+        float menu_w = 0.0f;
+        for (const Asset& a : m_assets)
+            menu_w = std::max(menu_w,
+                kit_menu_row_width(a.symbol.c_str(),
+                    m_registry.all()[std::size_t(a.chain)].name.c_str()));
         for (int i = 0; i < int(m_assets.size()); ++i) {
             const Asset& a = m_assets[std::size_t(i)];
             const chains::ChainSpec& c = m_registry.all()[std::size_t(a.chain)];
@@ -284,7 +290,7 @@ void SendPage::draw_form(const i18n::Catalog& tr)
             // the identity, the label is just the face.
             ImGui::PushID(i);
             if (kit_menu_item_icon(a.symbol.c_str(), a.symbol.c_str(),
-                    c.name.c_str(), i == m_asset_index))
+                    c.name.c_str(), i == m_asset_index, menu_w))
                 m_asset_index = i;
             ImGui::PopID();
         }

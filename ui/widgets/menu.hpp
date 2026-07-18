@@ -16,10 +16,13 @@ void kit_menu_end();
 bool kit_menu_item(const char* label, const char* trailing = nullptr,
     bool selected = false, bool enabled = true);
 
-// A menu row led by a minted identity avatar — for pickers whose
-// entries are things (assets, wallets) rather than verbs. The caller
-// wraps rows in PushID when labels repeat across rows.
-bool kit_menu_item_icon(const char* avatar_name, const char* label,
-    const char* trailing = nullptr, bool selected = false);
+// A menu row led by a color swatch minted from a name — for pickers
+// whose entries are things (assets, wallets) rather than verbs. Every
+// row in one menu must share one width or the highlights come out
+// ragged: measure the widest row first, then pass it to each. The
+// caller wraps rows in PushID when labels repeat.
+float kit_menu_row_width(const char* label, const char* trailing = nullptr);
+bool kit_menu_item_icon(const char* swatch_name, const char* label,
+    const char* trailing = nullptr, bool selected = false, float width = 0.0f);
 
 }
