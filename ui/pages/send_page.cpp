@@ -122,6 +122,19 @@ const chains::ChainSpec& SendPage::selected_chain() const
     return m_registry.all()[std::size_t(selected_asset().chain)];
 }
 
+void SendPage::prefill(uint64_t chain_id, const std::string& symbol)
+{
+    for (int i = 0; i < int(m_assets.size()); ++i) {
+        const Asset& a = m_assets[std::size_t(i)];
+        if (a.symbol == symbol
+            && m_registry.all()[std::size_t(a.chain)].chain_id == chain_id) {
+            m_asset_index = i;
+            break;
+        }
+    }
+    m_focus_self = true;
+}
+
 void SendPage::reset_to_form()
 {
     sodium_memzero(m_pass.data(), m_pass.size());
@@ -191,6 +204,10 @@ void SendPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     }
 
     ImGui::Begin((std::string(tr("send.title")) + "###send-page").c_str());
+    if (m_focus_self) {
+        ImGui::SetWindowFocus();
+        m_focus_self = false;
+    }
 
     m_secret_focus = false;
     draw_form(tr);
@@ -255,9 +272,13 @@ void SendPage::draw_form(const i18n::Catalog& tr)
         for (int i = 0; i < int(m_assets.size()); ++i) {
             const Asset& a = m_assets[std::size_t(i)];
             const chains::ChainSpec& c = m_registry.all()[std::size_t(a.chain)];
+            // The same symbol lives on many chains; the row index is
+            // the identity, the label is just the face.
+            ImGui::PushID(i);
             if (kit_menu_item(
                     a.symbol.c_str(), c.name.c_str(), i == m_asset_index))
                 m_asset_index = i;
+            ImGui::PopID();
         }
         kit_menu_end();
     }

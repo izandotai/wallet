@@ -77,6 +77,7 @@ void PortfolioPage::refresh(const std::string& address)
         try {
             for (const auto& h : reader->snapshot(address)) {
                 Row row;
+                row.chain_id = h.chain_id;
                 row.chain = h.chain;
                 row.symbol = h.symbol;
                 row.ok = h.ok;
@@ -218,9 +219,13 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
             if (i)
                 kit_hairline();
             const std::string id = row.chain + "/" + row.symbol;
-            kit_asset_row(id.c_str(), row.symbol.c_str(), row.chain.c_str(),
-                row.amount.c_str(), row.ok, tr("portfolio.unreadable"),
-                row.fiat.c_str());
+            if (kit_asset_row(id.c_str(), row.symbol.c_str(), row.chain.c_str(),
+                    row.amount.c_str(), row.ok, tr("portfolio.unreadable"),
+                    row.fiat.c_str())
+                && row.ok && m_on_send)
+                m_on_send(row.chain_id, row.symbol);
+            if (row.ok && ImGui::IsItemHovered())
+                kit_tooltip(tr("send.title"));
         }
         kit_group_end();
     } else if (!busy && m_status.empty()) {

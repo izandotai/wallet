@@ -1,7 +1,9 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,8 +28,16 @@ public:
 
     void draw(const i18n::Catalog& tr);
 
+    // Touching an asset row means "send this"; the host wires the
+    // handler to the send page.
+    void on_send(std::function<void(uint64_t, const std::string&)> fn)
+    {
+        m_on_send = std::move(fn);
+    }
+
 private:
     struct Row {
+        uint64_t chain_id = 0;
         std::string chain;
         std::string symbol;
         std::string amount; // formatted; empty when !ok
@@ -50,6 +60,7 @@ private:
     std::string m_followed;    // the address the shown rows belong to
     double m_fetched_at = 0.0; // frame clock at the last snapshot
     std::vector<Row> m_rows;
+    std::function<void(uint64_t, const std::string&)> m_on_send;
     std::shared_ptr<Job> m_job;
     std::string m_status;
     bool m_status_is_key = false;

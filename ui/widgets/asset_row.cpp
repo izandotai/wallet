@@ -10,7 +10,7 @@
 
 namespace izan::ui {
 
-void kit_asset_row(const char* id, const char* symbol, const char* chain,
+bool kit_asset_row(const char* id, const char* symbol, const char* chain,
     const char* balance, bool ok, const char* error_note, const char* fiat)
 {
     const float em = ImGui::GetFontSize();
@@ -18,10 +18,22 @@ void kit_asset_row(const char* id, const char* symbol, const char* chain,
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const float row_w = ImGui::GetContentRegionAvail().x;
     ImGui::PushID(id);
-    ImGui::Dummy(ImVec2(row_w, row_h));
+    const bool clicked = ImGui::InvisibleButton("##row", ImVec2(row_w, row_h));
+    const bool hovered = ImGui::IsItemHovered();
     ImGui::PopID();
+    if (hovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
+    if (hovered) {
+        const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+        const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+        draw->AddRectFilled(ImVec2(pos.x - em * 0.3f, pos.y),
+            ImVec2(pos.x + row_w + em * 0.3f, pos.y + row_h),
+            ImGui::GetColorU32(
+                kit_blend(bg, text, kit_is_dark() ? 0.06f : 0.045f)),
+            ImGui::GetFontSize() * design().selection_radius);
+    }
     const float avatar = em * 1.6f;
     kit_avatar_at(
         ImVec2(pos.x, pos.y + (row_h - avatar) * 0.5f), symbol, avatar);
@@ -55,6 +67,7 @@ void kit_asset_row(const char* id, const char* symbol, const char* chain,
             ImVec2(kit_snap(pos.x + row_w - fw), kit_snap(pos.y + em * 1.25f)),
             ImGui::GetColorU32(ImGuiCol_TextDisabled), fiat);
     }
+    return clicked;
 }
 
 }

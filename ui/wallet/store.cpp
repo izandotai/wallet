@@ -34,12 +34,16 @@ void WalletStore::rescan()
         const std::string id = entry.path().stem().string();
         const AccountsMeta meta = read_meta(id);
         // Pre-sidecar wallets (the migrated "main") display their id.
-        m_wallets.push_back(
-            { id, meta.name.empty() ? id : meta.name, meta.kind, meta.count });
+        m_wallets.push_back({ id, meta.name.empty() ? id : meta.name, meta.kind,
+            meta.count, entry.last_write_time(ec) });
     }
+    // Oldest first: the first wallet a person ever made stays at the
+    // top and new ones join at the bottom — the order memory expects.
+    // Name-sorting scrambled that by byte value: uppercase Latin, then
+    // lowercase, then CJK.
     std::sort(m_wallets.begin(), m_wallets.end(),
         [](const WalletEntry& a, const WalletEntry& b) {
-            return a.name < b.name;
+            return a.born != b.born ? a.born < b.born : a.name < b.name;
         });
 }
 

@@ -37,6 +37,10 @@ public:
 
     void draw(GLFWwindow* window, const i18n::Catalog& tr);
 
+    // The assets page hands over a clicked holding: select the
+    // matching asset and bring this page forward.
+    void prefill(uint64_t chain_id, const std::string& symbol);
+
 private:
     enum class Stage {
         Form,
@@ -96,6 +100,7 @@ private:
     bool m_ime_disabled = false;
     bool m_secret_focus = false;
     bool m_focus_pass = false; // focus the passphrase once per entry
+    bool m_focus_self = false; // raise this dock window next frame
 
     // The reviewed draft; immutable once the proposal is submitted —
     // keyd signs the queue's copy of exactly these bytes.

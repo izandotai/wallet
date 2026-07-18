@@ -259,6 +259,12 @@ int main(int argc, char** argv)
         sendError = e.what();
     }
 
+    // Touching a holding on the assets page walks it to the send form.
+    if (portfolio && send)
+        portfolio->on_send([&send](uint64_t chain_id, const std::string& sym) {
+            send->prefill(chain_id, sym);
+        });
+
     app.set_render_callback([&] {
         app.begin_frame();
 

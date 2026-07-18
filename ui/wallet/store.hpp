@@ -39,6 +39,9 @@ struct WalletEntry {
     std::string name;
     std::string kind;
     uint32_t count = 1;
+    // The vault file's write time — effectively its birth, since the
+    // file only changes on a rekey. The list order rides on it.
+    std::filesystem::file_time_type born {};
 };
 
 // The wallet directory: one .qvlt per wallet with its accounts.json
