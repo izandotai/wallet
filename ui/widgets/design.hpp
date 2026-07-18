@@ -50,6 +50,7 @@ struct DesignLanguage {
     // every button in the app at once.
     bool button_pill = true;    // capsule ends (full-round sides)
     float button_gloss = 0.55f; // 0..1 metallic top-light overlay
+    float button_min_em = 4.5f; // auto-width floor: no squat capsules
 
     // -- material & light --
     float group_elevation_dark = 0.045f; // card bg lift toward text

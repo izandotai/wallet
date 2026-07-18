@@ -166,7 +166,7 @@ int kit_dialog_buttons(const char* cancel, const char* confirm,
     const float gap = ImGui::GetStyle().ItemSpacing.x;
     const float w = (dialog_width() - gap) * 0.5f;
     int choice = 0;
-    if (ImGui::Button(cancel, ImVec2(w, 0.0f)))
+    if (kit_subtle_button(cancel, w))
         choice = 1;
     ImGui::SameLine();
     ImGui::BeginDisabled(!confirm_enabled);

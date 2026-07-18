@@ -231,7 +231,7 @@ void draw_kit_gallery()
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetCursorPosX()
             + ImGui::GetContentRegionAvail().x - em * 2.2f);
-        if (kit_subtle_button("QR")) {
+        if (kit_subtle_button("QR", em * 2.2f)) {
             qr_row = i;
             open_qr = true;
         }

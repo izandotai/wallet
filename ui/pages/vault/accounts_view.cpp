@@ -93,7 +93,9 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetCursorPosX()
             + ImGui::GetContentRegionAvail().x - em * 2.2f);
-        if (kit_subtle_button("QR")) {
+        // Explicit width: the row reserves exactly this slot, and the
+        // auto-width floor would burst it.
+        if (kit_subtle_button("QR", em * 2.2f)) {
             m_qr_index = int(i);
             m_open_qr = true;
         }
