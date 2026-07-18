@@ -65,5 +65,13 @@
     "send.failed": "Échec.",
     "vault.address": "Adresse",
     "vault.busy": "En cours…",
-    "ui.copy": "Cliquer pour copier"
+    "ui.copy": "Cliquer pour copier",
+    "wallet.list": "Portefeuille",
+    "wallet.name": "Nom",
+    "wallet.err.name": "Nom invalide ou déjà pris (A-Z, 0-9, - et _ uniquement).",
+    "vault.secret_in": "Phrase de récupération ou clé privée",
+    "vault.kind.hd": "Portefeuille HD",
+    "vault.kind.key": "Portefeuille à clé privée",
+    "vault.err.secret": "Ni phrase de récupération ni clé privée valide.",
+    "vault.warn.backup.key": "Quiconque connaît cette clé peut dépenser les fonds de ce portefeuille. Ne la partagez jamais."
 }

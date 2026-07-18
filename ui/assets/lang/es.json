@@ -65,5 +65,13 @@
     "send.failed": "Falló.",
     "vault.address": "Dirección",
     "vault.busy": "Procesando…",
-    "ui.copy": "Clic para copiar"
+    "ui.copy": "Clic para copiar",
+    "wallet.list": "Cartera",
+    "wallet.name": "Nombre",
+    "wallet.err.name": "Nombre no válido o duplicado (solo A-Z, 0-9, - y _).",
+    "vault.secret_in": "Frase de recuperación o clave privada",
+    "vault.kind.hd": "Cartera HD",
+    "vault.kind.key": "Cartera de clave privada",
+    "vault.err.secret": "No es una frase de recuperación ni una clave privada válida.",
+    "vault.warn.backup.key": "Cualquiera que conozca esta clave puede gastar los fondos de esta cartera. No la compartas nunca."
 }

@@ -65,5 +65,13 @@
     "send.failed": "失敗しました。",
     "vault.address": "アドレス",
     "vault.busy": "処理中…",
-    "ui.copy": "クリックでコピー"
+    "ui.copy": "クリックでコピー",
+    "wallet.list": "ウォレット",
+    "wallet.name": "名前",
+    "wallet.err.name": "名前が無効か既に存在します（半角英数と - _ のみ）。",
+    "vault.secret_in": "リカバリーフレーズまたは秘密鍵",
+    "vault.kind.hd": "HDウォレット",
+    "vault.kind.key": "秘密鍵ウォレット",
+    "vault.err.secret": "有効なリカバリーフレーズまたは秘密鍵ではありません。",
+    "vault.warn.backup.key": "この秘密鍵を知っている人は誰でもこのウォレットの資産を動かせます。絶対に共有しないでください。"
 }

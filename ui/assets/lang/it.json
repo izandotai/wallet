@@ -65,5 +65,13 @@
     "send.failed": "Non riuscita.",
     "vault.address": "Indirizzo",
     "vault.busy": "In corso…",
-    "ui.copy": "Clic per copiare"
+    "ui.copy": "Clic per copiare",
+    "wallet.list": "Portafoglio",
+    "wallet.name": "Nome",
+    "wallet.err.name": "Nome non valido o già in uso (solo A-Z, 0-9, - e _).",
+    "vault.secret_in": "Frase di recupero o chiave privata",
+    "vault.kind.hd": "Portafoglio HD",
+    "vault.kind.key": "Portafoglio a chiave privata",
+    "vault.err.secret": "Non è una frase di recupero né una chiave privata valida.",
+    "vault.warn.backup.key": "Chiunque conosca questa chiave può spendere i fondi di questo portafoglio. Non condividerla mai."
 }

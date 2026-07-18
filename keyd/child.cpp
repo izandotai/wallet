@@ -408,9 +408,12 @@ int child_main(int argc, char** argv)
                 }
                 try {
                     const std::string addr = account_address(*holder->wallet);
-                    send_op(channel, Op::AddressIs,
-                        reinterpret_cast<const uint8_t*>(addr.data()),
-                        addr.size());
+                    std::vector<uint8_t> body(1 + addr.size());
+                    body[0] = uint8_t(holder->wallet->entropy.empty()
+                            ? RevealKind::PrivateKey
+                            : RevealKind::SeedEntropy);
+                    std::memcpy(body.data() + 1, addr.data(), addr.size());
+                    send_op(channel, Op::AddressIs, body.data(), body.size());
                 } catch (const std::exception& e) {
                     send_err(channel, e.what());
                 }

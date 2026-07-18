@@ -434,11 +434,13 @@ TEST_CASE("keyd proposals: a key-only wallet signs and reveals its key")
 
     KeydClient keyd = KeydClient::spawn(self_exe(), vaultPath);
 
-    // Address answers with the key's own identity while unlocked.
+    // Address answers with the key's own identity while unlocked, and
+    // reports what kind of wallet is speaking.
     REQUIRE(keyd.unlock(sb_from("correct horse")));
     auto addr = keyd.address();
     REQUIRE(addr);
     CHECK(*addr == kDevAccount0);
+    CHECK(keyd.wallet_kind() == RevealKind::PrivateKey);
 
     // Approval signs through the raw-key path.
     const std::vector<uint8_t> payload { 'k', 'e', 'y' };

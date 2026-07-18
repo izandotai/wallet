@@ -67,6 +67,13 @@ public:
     // lands in last_error()).
     std::optional<std::string> address();
 
+    // What the active wallet is, learned from the last successful
+    // address() call — drives type-adaptive labels in the UI.
+    keyd::RevealKind wallet_kind() const
+    {
+        return m_wallet_kind;
+    }
+
     // Submits over the proposal pipe with the session-subkey MAC that
     // marks the proposal as coming from this UI (§3.1 gap two).
     // Returns the proposal id.
@@ -111,6 +118,7 @@ private:
         const uint8_t* frame, std::size_t size);
 
     proc::ChildProcess m_child;
+    RevealKind m_wallet_kind = RevealKind::SeedEntropy;
     std::unique_ptr<ipc::SecretChannel> m_channel;
     secure::SecureBytes m_mac_key;
     std::string m_pipe_name;

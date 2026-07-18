@@ -43,7 +43,7 @@ enum class Op : uint8_t {
     ProposalBody = 0x45, // body: u8 provenance, then payload bytes
     RootSecret = 0x46,   // body: kind(1) — see RevealKind — then bytes
     Signed = 0x47,       // body: y_parity(1) || r(32) || s(32)
-    AddressIs = 0x48,    // body: utf-8 EIP-55 address
+    AddressIs = 0x48,    // body: kind(1) || utf-8 EIP-55 address
 };
 
 // First byte of a RootSecret body.

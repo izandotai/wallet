@@ -141,13 +141,14 @@ std::optional<std::string> KeydClient::address()
         m_last_error = "channel broken";
         return std::nullopt;
     }
-    if (reply->data()[0] != uint8_t(Op::AddressIs)) {
+    if (reply->data()[0] != uint8_t(Op::AddressIs) || reply->size() < 3) {
         m_last_error.assign(reinterpret_cast<const char*>(reply->data()) + 1,
-            reply->size() - 1);
+            reply->empty() ? 0 : reply->size() - 1);
         return std::nullopt;
     }
+    m_wallet_kind = RevealKind(reply->data()[1]);
     return std::string(
-        reinterpret_cast<const char*>(reply->data()) + 1, reply->size() - 1);
+        reinterpret_cast<const char*>(reply->data()) + 2, reply->size() - 2);
 }
 
 std::optional<uint64_t> KeydClient::submit_ui(

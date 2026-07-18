@@ -65,5 +65,13 @@
     "send.failed": "Failed.",
     "vault.address": "Address",
     "vault.busy": "Working…",
-    "ui.copy": "Click to copy"
+    "ui.copy": "Click to copy",
+    "wallet.list": "Wallet",
+    "wallet.name": "Name",
+    "wallet.err.name": "Invalid or duplicate name (A-Z, 0-9, - and _).",
+    "vault.secret_in": "Recovery phrase or private key",
+    "vault.kind.hd": "HD wallet",
+    "vault.kind.key": "Private-key wallet",
+    "vault.err.secret": "Not a valid recovery phrase or private key.",
+    "vault.warn.backup.key": "Anyone who knows this key can spend this wallet's funds. Never share it."
 }

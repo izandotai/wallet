@@ -65,5 +65,13 @@
     "send.failed": "失败。",
     "vault.address": "地址",
     "vault.busy": "处理中…",
-    "ui.copy": "点击复制"
+    "ui.copy": "点击复制",
+    "wallet.list": "钱包",
+    "wallet.name": "名称",
+    "wallet.err.name": "名称无效或已存在（仅限字母、数字、- 和 _）。",
+    "vault.secret_in": "助记词或私钥",
+    "vault.kind.hd": "HD 钱包",
+    "vault.kind.key": "私钥钱包",
+    "vault.err.secret": "不是有效的助记词或私钥。",
+    "vault.warn.backup.key": "任何知道这个私钥的人都能动用该钱包的资产，绝不要泄露。"
 }

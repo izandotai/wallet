@@ -40,6 +40,7 @@ struct Settings {
     std::string language = "en";
     int theme_index = 0;
     float window_opacity = 0.96f;
+    std::string active_wallet;
     // Flattened ui::LayoutState. The shell owns what these mean (see
     // ui/shell/ui_layout.hpp); this file only owns where they live.
     int window_w = 0;
@@ -126,9 +127,27 @@ Settings load_settings()
     return s;
 }
 
-std::string default_vault_path()
+// Wallets live one vault file each under wallets/. The single-vault
+// era's izan.qvlt (plus its audit ledger and rotation) moves in as
+// "main" once; the move keeps the money history and the ledger chain
+// intact.
+std::filesystem::path wallets_dir()
 {
-    return (state_dir() / "izan.qvlt").string();
+    const auto dir = state_dir() / "wallets";
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    const auto old = state_dir() / "izan.qvlt";
+    if (std::filesystem::exists(old)
+        && !std::filesystem::exists(dir / "main.qvlt")) {
+        std::filesystem::rename(old, dir / "main.qvlt", ec);
+        for (const char* suffix : { ".qvlt.audit", ".qvlt.bak" }) {
+            const auto extra = state_dir() / ("izan" + std::string(suffix));
+            if (std::filesystem::exists(extra))
+                std::filesystem::rename(
+                    extra, dir / ("main" + std::string(suffix)), ec);
+        }
+    }
+    return dir;
 }
 
 std::string self_exe_path()
@@ -181,7 +200,7 @@ int main(int argc, char** argv)
     ui::apply_theme_style_only(chrome.theme_index);
     glfwSetWindowOpacity(app.window(), chrome.window_opacity);
 
-    ui::VaultPage vault(default_vault_path(), self_exe_path());
+    ui::VaultPage vault(wallets_dir(), self_exe_path(), settings.active_wallet);
 
     // A broken chain/token config takes down the portfolio pane, not
     // the wallet: the vault stays reachable and the error is shown.
@@ -305,6 +324,10 @@ int main(int argc, char** argv)
 
         if (chrome.window_opacity != settings.window_opacity) {
             settings.window_opacity = chrome.window_opacity;
+            save_settings(settings);
+        }
+        if (vault.active() != settings.active_wallet) {
+            settings.active_wallet = vault.active();
             save_settings(settings);
         }
         layout_keeper.update(
