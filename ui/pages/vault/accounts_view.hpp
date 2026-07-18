@@ -19,10 +19,18 @@ namespace izan::ui {
 class AccountsView {
 public:
     struct Event {
-        enum class Type { None, Select, Add, Lock, Backup, LabelEdit };
+        enum class Type {
+            None,
+            Select,
+            Add,
+            Lock,
+            Backup,
+            LabelEdit,
+            RefreshBalance,
+        };
         Type type = Type::None;
         const char* err = nullptr;
-        uint32_t index = 0;       // Select / LabelEdit
+        uint32_t index = 0;       // Select / LabelEdit / RefreshBalance
         std::string label;        // LabelEdit
         secure::SecureBytes pass; // Backup
     };

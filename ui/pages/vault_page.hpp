@@ -126,7 +126,9 @@ private:
     void start_backup(secure::SecureBytes pass);
     void handle_accounts(AccountsView::Event ev);
     void handle_list(WalletListView::Event ev);
-    void fetch_balances(); // async native balances for the account line
+    // Async native balances for the account line; only_index >= 0
+    // refreshes that one row and leaves the rest alone.
+    void fetch_balances(int only_index = -1);
 
     WalletStore m_store;
     KeydSession m_session;
@@ -152,9 +154,12 @@ private:
 
     // Native balances for the account line, fetched in the background
     // after unlock (EVM wallets, the registry's first chain). Display
-    // garnish — an empty string shows nothing.
+    // garnish — an empty string shows nothing. index >= 0 marks a
+    // single-row refresh: deriving one address or clicking one balance
+    // must not recompute the whole book.
     struct BalanceJob {
         std::atomic<int> phase { 0 };
+        int index = -1;
         std::vector<std::string> out;
     };
 

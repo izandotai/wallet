@@ -86,6 +86,15 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
             ImGui::PushFont(nullptr, kit_caption_size());
             ImGui::TextDisabled("%s", balances[std::size_t(i)].c_str());
             ImGui::PopFont();
+            // A balance is a snapshot; clicking it takes a fresh one.
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                kit_tooltip(tr("portfolio.refresh"));
+            }
+            if (ImGui::IsItemClicked()) {
+                ev.type = Event::Type::RefreshBalance;
+                ev.index = i;
+            }
         }
         ImGui::SameLine();
         kit_copy_text_right("##addr", addresses[std::size_t(i)].c_str(),

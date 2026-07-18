@@ -154,8 +154,16 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
 {
     poll_job();
     if (m_bal_job && m_bal_job->phase.load() != 0) {
-        if (m_bal_job->phase.load() == 1)
-            m_balances = std::move(m_bal_job->out);
+        if (m_bal_job->phase.load() == 1) {
+            if (m_bal_job->index < 0) {
+                m_balances = std::move(m_bal_job->out);
+            } else if (!m_bal_job->out.empty()) {
+                if (m_balances.size() <= std::size_t(m_bal_job->index))
+                    m_balances.resize(std::size_t(m_bal_job->index) + 1);
+                m_balances[std::size_t(m_bal_job->index)]
+                    = std::move(m_bal_job->out.front());
+            }
+        }
         m_bal_job.reset();
     }
     if (m_pending_mode) {
@@ -266,17 +274,29 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     }
 }
 
-void VaultPage::fetch_balances()
+void VaultPage::fetch_balances(int only_index)
 {
-    m_balances.clear();
     // EVM wallets only for now; the other families get their balance
     // readers with their own engines.
     if (keyd::preset_family(keyd::DerivePreset(m_meta.preset))
         != keyd::ChainFamily::Eth)
         return;
+    if (m_bal_job)
+        return; // single driver: one balance worker at a time
+    std::vector<std::string> addrs;
+    if (only_index < 0) {
+        m_balances.clear();
+        addrs = m_session.addresses();
+    } else {
+        const auto& book = m_session.addresses();
+        if (std::size_t(only_index) >= book.size())
+            return;
+        addrs.push_back(book[std::size_t(only_index)]);
+    }
     auto job = std::make_shared<BalanceJob>();
+    job->index = only_index;
     m_bal_job = job;
-    std::thread([job, addrs = m_session.addresses(),
+    std::thread([job, addrs = std::move(addrs),
                     chains_path = m_data_dir / "chains.json"]() {
         try {
             std::ifstream f(chains_path, std::ios::binary);
@@ -517,13 +537,17 @@ void VaultPage::handle_accounts(AccountsView::Event ev)
         m_store.write_meta(m_active, m_meta);
         m_store.rescan(); // the card face shows the count
         m_session.push_address(m_meta.count - 1, m_meta.preset);
-        fetch_balances();
+        // Only the newborn row needs a number; the rest are current.
+        fetch_balances(int(m_meta.count) - 1);
         break;
     case AccountsView::Event::Type::LabelEdit:
         if (ev.index >= m_meta.labels.size())
             m_meta.labels.resize(ev.index + 1);
         m_meta.labels[ev.index] = std::move(ev.label);
         m_store.write_meta(m_active, m_meta);
+        break;
+    case AccountsView::Event::Type::RefreshBalance:
+        fetch_balances(int(ev.index));
         break;
     case AccountsView::Event::Type::Lock:
         if (m_session.client() && m_session.client()->lock()) {

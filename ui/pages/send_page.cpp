@@ -83,15 +83,18 @@ namespace {
     }
 
     // For machine-made messages (node errors) that can run to any
-    // length: elided to the column, whole on hover.
-    void centered_caption_fit(const char* text, float budget)
+    // length: wrapped into the column as a paragraph — reading beats
+    // squinting at one elided line.
+    void wrapped_caption(const char* text, float left_x, float width)
     {
         ImGui::PushFont(nullptr, kit_caption_size());
-        const std::string shown
-            = kit_elide_end(text, budget, kit_caption_size());
-        centered_text(shown.c_str(), true);
-        if (shown != text && ImGui::IsItemHovered())
-            kit_tooltip(text);
+        ImGui::SetCursorPosX(left_x);
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + width);
+        ImGui::PushStyleColor(
+            ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextUnformatted(text);
+        ImGui::PopStyleColor();
+        ImGui::PopTextWrapPos();
         ImGui::PopFont();
     }
 
@@ -293,8 +296,9 @@ void SendPage::draw_form(const i18n::Catalog& tr)
 
     if (m_stage == Stage::Form && !m_status.empty()) {
         kit_vspace(0.25f);
-        centered_caption_fit(
-            m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(), col);
+        wrapped_caption(
+            m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(), left,
+            col);
     }
 }
 
@@ -508,9 +512,9 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         const bool submitted = secret_field(
             "##send-pass", m_pass, m_secret_focus, tr("send.passphrase"));
         if (!m_status.empty()) {
-            centered_caption_fit(
+            wrapped_caption(
                 m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(),
-                content);
+                ImGui::GetCursorPosX(), content);
         }
         const bool has_pass = strnlen(m_pass.data(), m_pass.size()) > 0;
         const int choice
@@ -556,9 +560,9 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         } else {
             centered_caption(tr("send.failed"));
             if (!m_status.empty())
-                centered_caption_fit(
+                wrapped_caption(
                     m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(),
-                    content);
+                    ImGui::GetCursorPosX(), content);
         }
         if (m_job && !m_job->tx_hash.empty()) {
             kit_vspace(0.25f);

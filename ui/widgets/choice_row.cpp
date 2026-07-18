@@ -11,23 +11,26 @@ namespace izan::ui {
 
 namespace {
 
+    // The macOS radio: a quiet recessed well when idle, the accent
+    // disc with a white center dot when chosen. No glyphs, no ticks —
+    // one filled circle says "this one" better than any drawing.
     void draw_mark(ImDrawList* draw, ImVec2 center, float em, bool selected)
     {
-        const float r = em * 0.28f;
+        const float r = em * 0.32f;
         if (selected) {
             draw->AddCircleFilled(center, r, ImGui::GetColorU32(kit_accent()));
-            // The check is drawn, not typed — a "✓" glyph would come
-            // out of the emoji font, colored and oversized.
-            const ImVec2 tick[3] = {
-                ImVec2(center.x - r * 0.50f, center.y + r * 0.05f),
-                ImVec2(center.x - r * 0.10f, center.y + r * 0.45f),
-                ImVec2(center.x + r * 0.55f, center.y - r * 0.40f),
-            };
-            draw->AddPolyline(tick, 3, IM_COL32(255, 255, 255, 245),
-                ImDrawFlags_RoundCornersAll, r * 0.28f);
+            draw->AddCircleFilled(
+                center, r * 0.38f, IM_COL32(255, 255, 255, 245));
+            draw->AddCircle(center, r, IM_COL32(0, 0, 0, 40));
         } else {
-            draw->AddCircle(
-                center, r, ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.6f));
+            const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+            const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
+            draw->AddCircleFilled(center, r,
+                ImGui::GetColorU32(
+                    kit_blend(bg, text, kit_is_dark() ? 0.07f : 0.05f)));
+            draw->AddCircle(center, r,
+                ImGui::GetColorU32(
+                    ImGui::GetStyleColorVec4(ImGuiCol_Separator)));
         }
     }
 
