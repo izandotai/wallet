@@ -70,8 +70,6 @@ void kit_group_begin(const char* id, float width)
     const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
     ImGui::PushStyleColor(
         ImGuiCol_ChildBg, blend(base, text, dark_theme() ? 0.045f : 0.03f));
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_ChildRounding, ImGui::GetFontSize() * 0.45f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
         ImVec2(ImGui::GetFontSize() * 0.6f, ImGui::GetFontSize() * 0.45f));
     ImGui::BeginChild(id, ImVec2(width, 0.0f),
@@ -81,7 +79,7 @@ void kit_group_begin(const char* id, float width)
 void kit_group_end()
 {
     ImGui::EndChild();
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 }
 
@@ -156,6 +154,8 @@ void kit_pill(const char* text, ImVec4 tint)
 
 namespace {
 
+    // Theme-default size and rounding; only the fill sets it apart, so
+    // a primary and its quiet neighbor always sit at the same height.
     bool filled_button(const char* label, float width, const ImVec4& fill)
     {
         const ImVec4 hover = blend(fill, ImVec4(1, 1, 1, fill.w), 0.12f);
@@ -164,12 +164,7 @@ namespace {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, active);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 0.96f));
-        ImGui::PushStyleVar(
-            ImGuiStyleVar_FrameRounding, ImGui::GetFontSize() * 0.4f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
-            ImVec2(ImGui::GetFontSize() * 0.8f, ImGui::GetFontSize() * 0.3f));
         const bool clicked = ImGui::Button(label, ImVec2(width, 0.0f));
-        ImGui::PopStyleVar(2);
         ImGui::PopStyleColor(4);
         return clicked;
     }
@@ -190,17 +185,9 @@ bool kit_danger_button(const char* label, float width)
 
 bool kit_subtle_button(const char* label)
 {
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(
-        ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-        ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive));
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_FrameRounding, ImGui::GetFontSize() * 0.4f);
-    const bool clicked = ImGui::Button(label);
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor(3);
-    return clicked;
+    // The theme's own button: same size, same shape as a primary —
+    // only the accent fill tells them apart.
+    return ImGui::Button(label);
 }
 
 }

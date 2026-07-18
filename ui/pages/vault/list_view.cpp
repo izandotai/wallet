@@ -134,6 +134,8 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
 
     if (ImGui::BeginPopupModal(
             "##rename-wallet", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+            ImGui::CloseCurrentPopup();
         kit_title(tr("wallet.rename"));
         kit_vspace(0.3f);
         ImGui::SetNextItemWidth(em * 12.0f);
@@ -155,6 +157,10 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
 
     if (ImGui::BeginPopupModal(
             "##delete-wallet", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            sodium_memzero(m_confirm.data(), m_confirm.size());
+            ImGui::CloseCurrentPopup();
+        }
         std::string target_name = m_target;
         for (const WalletEntry& w : store.wallets())
             if (w.id == m_target)

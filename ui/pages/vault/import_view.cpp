@@ -79,13 +79,11 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
             ImGui::SetKeyboardFocusHere();
             m_focus_pending = false;
         }
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
         if (ImGui::InputTextMultiline("##secret-in", m_secret_in.data(),
                 m_secret_in.size(),
                 ImVec2(-1.0f, ImGui::GetTextLineHeight() * 4)))
             m_model.update(std::string_view(m_secret_in.data(),
                 strnlen(m_secret_in.data(), m_secret_in.size())));
-        ImGui::PopStyleColor();
         secret_focus |= ImGui::IsItemActive();
         kit_group_end();
         kit_vspace(0.2f);

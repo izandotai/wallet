@@ -85,13 +85,10 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
         ImGui::Text("#%u", i);
         ImGui::PopFont();
 
-        // The note edits in place, framelessly — text until touched.
         ImGui::SameLine();
         ImGui::SetNextItemWidth(em * 7.0f);
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
         ImGui::InputTextWithHint("##note", tr("wallet.note"),
             m_labels[i].data(), m_labels[i].size());
-        ImGui::PopStyleColor();
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             ev.type = Event::Type::LabelEdit;
             ev.index = i;
@@ -151,6 +148,10 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     }
     if (ImGui::BeginPopupModal(
             "##backup-auth", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            sodium_memzero(m_pass.data(), m_pass.size());
+            ImGui::CloseCurrentPopup();
+        }
         kit_title(tr("vault.backup"));
         kit_vspace(0.3f);
         ImGui::SetNextItemWidth(em * 12.0f);
