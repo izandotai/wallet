@@ -6,6 +6,7 @@
 
 #include <imgui.h>
 
+#include "ui/widgets/avatar.hpp"
 #include "ui/widgets/design.hpp"
 #include "ui/widgets/text_field.hpp"
 
@@ -118,9 +119,11 @@ bool kit_amount_field(const char* id, char* buf, std::size_t size,
     float badge_zone = 0.0f;
     const float chevron = em * 0.55f;
     const float pad = em * 0.5f;
+    const float swatch = em * 0.8f;
     float bw = 0.0f;
     if (badge && *badge) {
-        bw = ImGui::CalcTextSize(badge).x + chevron + pad * 2.0f;
+        bw = swatch + em * 0.35f + ImGui::CalcTextSize(badge).x + chevron
+            + pad * 2.0f;
         badge_zone = bw + em * 0.7f;
     }
 
@@ -170,7 +173,14 @@ bool kit_amount_field(const char* id, char* buf, std::size_t size,
         draw->AddRectFilled(bmin, bmax,
             ImGui::GetColorU32(kit_blend(bg, text, hovered ? 0.16f : 0.09f)),
             bh * 0.5f);
-        draw->AddText(ImVec2(kit_snap(bmin.x + pad),
+        // The asset's minted color rides inside the capsule — the
+        // chain name stays in the menu; color plus symbol is enough
+        // identity for a badge.
+        const ImVec2 sp(kit_snap(bmin.x + pad),
+            kit_snap((bmin.y + bmax.y - swatch) * 0.5f));
+        draw->AddRectFilled(sp, ImVec2(sp.x + swatch, sp.y + swatch),
+            ImGui::GetColorU32(kit_identity_color(badge)), swatch * 0.24f);
+        draw->AddText(ImVec2(kit_snap(sp.x + swatch + em * 0.35f),
                           kit_snap((bmin.y + bmax.y - em) * 0.5f)),
             ImGui::GetColorU32(ImGuiCol_Text), badge);
         const float cx = bmax.x - pad - chevron * 0.5f;

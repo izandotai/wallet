@@ -268,12 +268,11 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     // token) being counted, with its network. Picking from the menu
     // picks both at once.
     const Asset& asset = selected_asset();
-    const std::string badge = asset.symbol + " · " + chain.name;
     ImGui::SetCursorPosX(left);
     ImGui::SetNextItemWidth(col);
     bool pick_asset = false;
     kit_amount_field("##send-amount", m_amount.data(), m_amount.size(),
-        badge.c_str(), &pick_asset);
+        asset.symbol.c_str(), &pick_asset);
     if (pick_asset)
         ImGui::OpenPopup("##send-asset-pop");
     if (kit_menu_begin("##send-asset-pop")) {
