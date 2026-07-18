@@ -6,6 +6,7 @@
 #include <sodium.h>
 
 #include "ui/wallet/presets.hpp"
+#include "ui/widgets/design.hpp"
 #include "ui/widgets/dialog.hpp"
 #include "ui/widgets/kit.hpp"
 
@@ -38,7 +39,7 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
 
         // A source-list row, composed by hand: rounded selection
         // highlight, avatar, name over subtitle, a lock dot trailing.
-        const float row_h = em * 2.4f;
+        const float row_h = em * design().list_row_height;
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float row_w = ImGui::GetContentRegionAvail().x;
         if (ImGui::InvisibleButton("##row", ImVec2(row_w, row_h))
@@ -53,9 +54,9 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
                 ImGui::GetColorU32(
                     is_active ? ImGuiCol_Header : ImGuiCol_HeaderHovered,
                     is_active ? 1.0f : 0.55f),
-                em * 0.35f);
+                em * design().selection_radius);
 
-        const float avatar = em * 1.7f;
+        const float avatar = em * design().list_avatar;
         kit_avatar_at(
             ImVec2(pos.x + em * 0.35f, pos.y + (row_h - avatar) * 0.5f),
             w.name.c_str(), avatar);
@@ -90,6 +91,10 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
                 ImGui::GetColorU32(ImGuiCol_TextDisabled, 0.7f));
 
         if (ImGui::BeginPopupContextItem("##card-menu")) {
+            // The click that opened this menu leaves a keyboard-nav
+            // cursor behind; a mouse-born menu must not show a focus
+            // ring on its first item.
+            ImGui::PushItemFlag(ImGuiItemFlags_NoNav, true);
             if (ImGui::MenuItem(tr("wallet.activate")) && !is_active) {
                 ev.type = Event::Type::Activate;
                 ev.id = w.id;
@@ -106,6 +111,7 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
                 sodium_memzero(m_confirm.data(), m_confirm.size());
                 m_open_delete = true;
             }
+            ImGui::PopItemFlag();
             ImGui::EndPopup();
         }
         ImGui::PopID();

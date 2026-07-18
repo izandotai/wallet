@@ -6,6 +6,7 @@
 #include <sodium.h>
 
 #include "ui/wallet/presets.hpp"
+#include "ui/widgets/design.hpp"
 #include "ui/widgets/kit.hpp"
 #include "ui/widgets/secret_field.hpp"
 
@@ -162,7 +163,7 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
     kit_caption(m_model.preview(chosen).c_str());
     kit_vspace(0.4f);
 
-    const float col = em * 14.0f;
+    const float col = em * design().form_width;
     kit_group_begin("##import-fields", col + em * 1.2f);
     ImGui::SetNextItemWidth(col);
     if (m_focus_pending && !busy) {

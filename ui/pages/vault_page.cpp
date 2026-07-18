@@ -14,6 +14,7 @@
 #include "ui/shell/ime.hpp"
 #include "ui/wallet/import_model.hpp"
 #include "ui/wallet/presets.hpp"
+#include "ui/widgets/design.hpp"
 #include "ui/widgets/kit.hpp"
 
 namespace izan::ui {
@@ -154,15 +155,17 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     // pane, the active wallet's screen on the right with generous
     // padding. List events are applied after both panes have drawn —
     // a screen must never change mid-frame.
+    const DesignLanguage& dl = design();
     const float em = ImGui::GetFontSize();
     {
         const ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
-        ImGui::PushStyleColor(ImGuiCol_ChildBg,
-            ImVec4(bg.x * 0.82f, bg.y * 0.82f, bg.z * 0.82f, 1.0f));
+        const float k = dl.sidebar_recess;
+        ImGui::PushStyleColor(
+            ImGuiCol_ChildBg, ImVec4(bg.x * k, bg.y * k, bg.z * k, 1.0f));
     }
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_WindowPadding, ImVec2(em * 0.5f, em * 0.5f));
-    ImGui::BeginChild("##wallet-cards", ImVec2(em * 12.0f, 0.0f),
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
+        ImVec2(em * dl.sidebar_pad, em * dl.sidebar_pad));
+    ImGui::BeginChild("##wallet-cards", ImVec2(em * dl.sidebar_width, 0.0f),
         ImGuiChildFlags_AlwaysUseWindowPadding);
     const WalletListView::Event lev
         = m_list.draw(tr, busy, m_store, m_active, m_session.unlocked());
@@ -170,15 +173,15 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
     ImGui::SameLine();
-    ImGui::PushStyleVar(
-        ImGuiStyleVar_WindowPadding, ImVec2(em * 1.1f, em * 0.9f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
+        ImVec2(em * dl.pane_pad_x, em * dl.pane_pad_y));
     ImGui::BeginChild("##wallet-detail", ImVec2(0.0f, 0.0f),
         ImGuiChildFlags_AlwaysUseWindowPadding);
     ImGui::PopStyleVar();
 
     if (m_mode == Mode::Unlocked) {
         // The header: who this wallet is, and what it is, at a glance.
-        const float avatar = em * 2.1f;
+        const float avatar = em * dl.header_avatar;
         const ImVec2 head = ImGui::GetCursorScreenPos();
         kit_avatar_at(head, m_active_name.c_str(), avatar);
         ImGui::SetCursorScreenPos(

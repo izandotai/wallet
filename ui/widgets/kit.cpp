@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "ui/widgets/design.hpp"
+
 namespace izan::ui {
 
 namespace {
@@ -25,12 +27,12 @@ namespace {
 
 float kit_title_size()
 {
-    return ImGui::GetFontSize() * 1.35f;
+    return ImGui::GetFontSize() * design().title_scale;
 }
 
 float kit_caption_size()
 {
-    return ImGui::GetFontSize() * 0.85f;
+    return ImGui::GetFontSize() * design().caption_scale;
 }
 
 void kit_title(const char* text)
@@ -66,12 +68,15 @@ ImVec4 kit_danger()
 
 void kit_group_begin(const char* id, float width)
 {
+    const DesignLanguage& dl = design();
     const ImVec4 base = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
     const ImVec4 text = ImGui::GetStyleColorVec4(ImGuiCol_Text);
-    ImGui::PushStyleColor(
-        ImGuiCol_ChildBg, blend(base, text, dark_theme() ? 0.045f : 0.03f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg,
+        blend(base, text,
+            dark_theme() ? dl.group_elevation_dark : dl.group_elevation_light));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
-        ImVec2(ImGui::GetFontSize() * 0.6f, ImGui::GetFontSize() * 0.45f));
+        ImVec2(ImGui::GetFontSize() * dl.group_pad_x,
+            ImGui::GetFontSize() * dl.group_pad_y));
     ImGui::BeginChild(id, ImVec2(width, 0.0f),
         ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
 }
@@ -95,19 +100,20 @@ void kit_hairline()
 
 void kit_avatar_at(ImVec2 pos, const char* name, float size)
 {
+    const DesignLanguage& dl = design();
     // Mint a stable hue from the name; saturation and value stay in a
     // friendly band so every wallet gets a distinct but calm color.
     unsigned hash = 2166136261u;
     for (const char* c = name; *c; ++c)
         hash = (hash ^ uint8_t(*c)) * 16777619u;
     ImVec4 color;
-    ImGui::ColorConvertHSVtoRGB(
-        float(hash % 360u) / 360.0f, 0.52f, 0.72f, color.x, color.y, color.z);
+    ImGui::ColorConvertHSVtoRGB(float(hash % 360u) / 360.0f, dl.avatar_sat,
+        dl.avatar_val, color.x, color.y, color.z);
     color.w = 1.0f;
 
     ImDrawList* draw = ImGui::GetWindowDrawList();
     draw->AddRectFilled(pos, ImVec2(pos.x + size, pos.y + size),
-        ImGui::GetColorU32(color), size * 0.28f);
+        ImGui::GetColorU32(color), size * dl.avatar_radius);
 
     // The first UTF-8 character of the name, centered in white.
     const char* end = name;
@@ -116,7 +122,7 @@ void kit_avatar_at(ImVec2 pos, const char* name, float size)
         while ((*end & 0xC0) == 0x80)
             ++end;
     }
-    const float glyph_size = size * 0.52f;
+    const float glyph_size = size * dl.avatar_glyph;
     ImGui::PushFont(nullptr, glyph_size);
     const ImVec2 text_size = ImGui::CalcTextSize(name, end);
     draw->AddText(ImGui::GetFont(), glyph_size,

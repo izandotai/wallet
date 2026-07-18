@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <sodium.h>
 
+#include "ui/widgets/design.hpp"
 #include "ui/widgets/kit.hpp"
 #include "ui/widgets/secret_field.hpp"
 
@@ -21,7 +22,7 @@ UnlockView::Event UnlockView::draw(const i18n::Catalog& tr, bool busy,
 {
     Event ev;
     const float em = ImGui::GetFontSize();
-    const float col = em * 13.0f;
+    const float col = em * design().form_width;
     const float width = ImGui::GetWindowSize().x;
     auto centered = [&](float w) {
         ImGui::SetCursorPosX((width - w) * 0.5f > 0 ? (width - w) * 0.5f : 0);
@@ -29,7 +30,7 @@ UnlockView::Event UnlockView::draw(const i18n::Catalog& tr, bool busy,
 
     ImGui::Dummy(ImVec2(0.0f, ImGui::GetContentRegionAvail().y * 0.18f));
 
-    const float avatar = em * 3.0f;
+    const float avatar = em * design().lock_avatar;
     centered(avatar);
     kit_avatar(wallet_name.c_str(), avatar);
     kit_vspace(0.5f);

@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <sodium.h>
 
+#include "ui/widgets/design.hpp"
 #include "ui/widgets/kit.hpp"
 #include "ui/widgets/secret_field.hpp"
 
@@ -23,7 +24,7 @@ CreateView::Event CreateView::draw(const i18n::Catalog& tr, bool busy,
 {
     Event ev;
     const float em = ImGui::GetFontSize();
-    const float col = em * 14.0f;
+    const float col = em * design().form_width;
 
     kit_title(tr("vault.create"));
     kit_vspace(0.5f);
