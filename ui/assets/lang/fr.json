@@ -15,6 +15,8 @@
     "portfolio.err.address": "Adresse non valide.",
     "portfolio.unreadable": "Illisible",
     "portfolio.warn.config": "La configuration des chaînes et des jetons diffère des valeurs d'origine.",
+    "asset.menu.contract": "Copier l'adresse du contrat",
+    "asset.menu.explorer": "Voir dans l'explorateur",
     "vault.title": "Coffre",
     "vault.create": "Créer un portefeuille",
     "vault.import": "Importer un portefeuille",

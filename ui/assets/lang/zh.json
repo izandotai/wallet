@@ -15,6 +15,8 @@
     "portfolio.err.address": "地址无效。",
     "portfolio.unreadable": "不可读",
     "portfolio.warn.config": "链/代币配置与出厂默认不一致。",
+    "asset.menu.contract": "复制合约地址",
+    "asset.menu.explorer": "在浏览器中查看",
     "vault.title": "金库",
     "vault.create": "创建钱包",
     "vault.import": "导入钱包",

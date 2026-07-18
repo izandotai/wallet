@@ -10,13 +10,9 @@
 
 #include <imgui.h>
 
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-
 #include "core/units/decimal.hpp"
 #include "domain/assets/history.hpp"
+#include "platform/time/local_clock.hpp"
 #include "ui/widgets/kit.hpp"
 
 namespace izan::ui {
@@ -41,34 +37,21 @@ namespace {
     }
 
     // The row wears a terse UTC moment; the tooltip owes the user the
-    // whole date in their own clock. Windows is the timezone authority
-    // here — libstdc++'s tzdb cannot see the OS setting, so the
-    // conversion goes through SYSTEMTIME, DST rules included.
+    // whole date in their own clock. The platform layer answers what
+    // time it is there — this page only dresses the answer.
     std::string local_moment_of(uint64_t unix_seconds)
     {
         if (!unix_seconds)
             return {};
-        const uint64_t ticks
-            = unix_seconds * 10000000ull + 116444736000000000ull;
-        const FILETIME utc_ft { DWORD(ticks & 0xffffffffull),
-            DWORD(ticks >> 32) };
-        SYSTEMTIME utc {}, local {};
-        if (!FileTimeToSystemTime(&utc_ft, &utc)
-            || !SystemTimeToTzSpecificLocalTime(nullptr, &utc, &local))
+        const auto lm = time::local_moment(unix_seconds);
+        if (!lm)
             return {};
-        FILETIME local_ft {};
-        if (!SystemTimeToFileTime(&local, &local_ft))
-            return {};
-        const int64_t local_ticks = int64_t(
-            (uint64_t(local_ft.dwHighDateTime) << 32) | local_ft.dwLowDateTime);
-        const int offset_min
-            = int((local_ticks - int64_t(ticks)) / 600000000ll);
-        const int abs_min = offset_min < 0 ? -offset_min : offset_min;
+        const int abs_min
+            = lm->offset_min < 0 ? -lm->offset_min : lm->offset_min;
         return std::format(
-            "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{}{:02}:{:02})",
-            local.wYear, local.wMonth, local.wDay, local.wHour, local.wMinute,
-            local.wSecond, offset_min < 0 ? '-' : '+', abs_min / 60,
-            abs_min % 60);
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02} (UTC{}{:02}:{:02})", lm->year,
+            lm->month, lm->day, lm->hour, lm->minute, lm->second,
+            lm->offset_min < 0 ? '-' : '+', abs_min / 60, abs_min % 60);
     }
 
 }

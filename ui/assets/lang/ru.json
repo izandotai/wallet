@@ -15,6 +15,8 @@
     "portfolio.err.address": "Неверный адрес.",
     "portfolio.unreadable": "Недоступно",
     "portfolio.warn.config": "Конфигурация сетей и токенов отличается от заводской.",
+    "asset.menu.contract": "Копировать адрес контракта",
+    "asset.menu.explorer": "Открыть в обозревателе",
     "vault.title": "Хранилище",
     "vault.create": "Создать кошелёк",
     "vault.import": "Импортировать кошелёк",

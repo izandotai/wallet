@@ -209,11 +209,13 @@ if(WIN32)
         PRIVATE izan_crypto)
 endif()
 
-# L1 platform: HTTPS transport. TLS trust anchors come from the OS
-# root store — the static OpenSSL has no default certificate paths.
+# L1 platform: HTTPS transport and the user's clock. TLS trust anchors
+# come from the OS root store — the static OpenSSL has no default
+# certificate paths — and the timezone comes from the OS as well.
 add_library(izan_platform STATIC
     platform/net/http_client.cpp
     platform/net/tls.cpp
+    platform/time/local_clock.cpp
 )
 target_include_directories(izan_platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_platform
@@ -407,6 +409,7 @@ add_executable(izan_tests
     tests/keyd_test.cpp
     tests/linkbits_test.cpp
     tests/proposals_test.cpp
+    tests/local_clock_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
     izan_codec izan_domain izan_i18n izan_platform doctest::doctest)

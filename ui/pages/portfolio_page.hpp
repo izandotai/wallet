@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,6 +44,7 @@ private:
         uint64_t chain_id = 0;
         std::string chain;
         std::string symbol;
+        std::string token;   // contract address, empty = native coin
         std::string amount;  // display-trimmed; empty when !ok
         double approx = 0.0; // full-precision read, for the fiat line
         std::string fiat;    // "$123.45"; empty when unpriced or testnet
@@ -63,6 +65,7 @@ private:
     void refresh(const std::string& address);
 
     std::shared_ptr<assets::PortfolioReader> m_reader;
+    std::map<uint64_t, std::string> m_explorers; // chain id → base URL
     VaultPage& m_vault;
     std::string m_followed;    // the address the shown rows belong to
     double m_fetched_at = 0.0; // frame clock at the last snapshot

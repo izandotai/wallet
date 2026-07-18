@@ -59,6 +59,8 @@ PortfolioPage::PortfolioPage(const std::filesystem::path& data_dir,
             != config::Trust::ShippedDefault;
 
     chains::ChainRegistry chains = chains::ChainRegistry::from_json(chainsJson);
+    for (const chains::ChainSpec& spec : chains.all())
+        m_explorers[spec.chain_id] = spec.explorer;
     assets::TokenRegistry tokens = assets::TokenRegistry::from_json(tokensJson);
     // The person's own tokens ride a separate file, outside the
     // shipped set and its digest — absent or malformed, the shipped
@@ -92,6 +94,7 @@ void PortfolioPage::refresh(const std::string& address)
                 row.chain_id = h.chain_id;
                 row.chain = h.chain;
                 row.symbol = h.symbol;
+                row.token = h.token;
                 row.ok = h.ok;
                 row.testnet = h.testnet;
                 if (h.ok) {
@@ -246,13 +249,33 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
             if (i)
                 kit_hairline();
             const std::string id = row.chain + "/" + row.symbol;
-            if (kit_asset_row(id.c_str(), row.symbol.c_str(), row.chain.c_str(),
-                    row.amount.c_str(), row.ok, tr("portfolio.unreadable"),
-                    row.fiat.c_str())
-                && row.ok && m_on_send)
+            ImGui::PushID(int(i));
+            const AssetRowEvent ev = kit_asset_row(id.c_str(),
+                row.symbol.c_str(), row.chain.c_str(), row.amount.c_str(),
+                row.ok, tr("portfolio.unreadable"), row.fiat.c_str(), true);
+            if (ev.clicked && row.ok && m_on_send)
                 m_on_send(row.chain_id, row.symbol);
-            if (row.ok && ImGui::IsItemHovered())
+            if (ev.hovered && row.ok)
                 kit_tooltip(tr("send.title"));
+            if (ev.menu)
+                ImGui::OpenPopup("##asset-menu");
+            if (kit_menu_begin("##asset-menu")) {
+                if (kit_menu_item(tr("send.title"), nullptr, false, row.ok)
+                    && m_on_send)
+                    m_on_send(row.chain_id, row.symbol);
+                if (!row.token.empty()
+                    && kit_menu_item(tr("asset.menu.contract")))
+                    ImGui::SetClipboardText(row.token.c_str());
+                const auto ex = m_explorers.find(row.chain_id);
+                if (ex != m_explorers.end() && !ex->second.empty()
+                    && kit_menu_item(tr("asset.menu.explorer")))
+                    kit_open_url((ex->second
+                        + (row.token.empty() ? "/address/" + m_followed
+                                             : "/token/" + row.token))
+                            .c_str());
+                kit_menu_end();
+            }
+            ImGui::PopID();
         }
         kit_group_end();
     } else if (!busy && m_status.empty()) {

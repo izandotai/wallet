@@ -15,6 +15,8 @@
     "portfolio.err.address": "Invalid address.",
     "portfolio.unreadable": "Unreadable",
     "portfolio.warn.config": "The chain and token configuration differs from the shipped defaults.",
+    "asset.menu.contract": "Copy contract address",
+    "asset.menu.explorer": "View on explorer",
     "vault.title": "Vault",
     "vault.create": "Create wallet",
     "vault.import": "Import wallet",

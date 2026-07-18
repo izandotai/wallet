@@ -273,7 +273,16 @@ void draw_kit_gallery()
 
     kit_heading("资产行 asset_row");
     kit_group_begin("##sec-assets");
-    kit_asset_row("##a0", "ETH", "Ethereum", "0.0012", true, "", "$4.21");
+    const AssetRowEvent a0 = kit_asset_row(
+        "##a0", "ETH", "Ethereum", "0.0012", true, "", "$4.21", true);
+    if (a0.menu)
+        ImGui::OpenPopup("##a0-menu");
+    if (kit_menu_begin("##a0-menu")) {
+        kit_menu_item("发送");
+        kit_menu_item("复制合约地址");
+        kit_menu_item("在浏览器中查看");
+        kit_menu_end();
+    }
     kit_hairline();
     kit_asset_row("##a1", "USDC.e", "Polygon", "0.10", true, "", "$0.10");
     kit_hairline();
