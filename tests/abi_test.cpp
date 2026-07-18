@@ -83,3 +83,28 @@ TEST_CASE("decode_u256 takes exactly one word")
     CHECK_THROWS_AS(
         decode_u256("0x" + std::string(65, '0')), std::invalid_argument);
 }
+
+TEST_CASE("to_bytes mirrors to_hex byte for byte")
+{
+    using izan::codec::CallData;
+    const CallData call = [] {
+        CallData c("transfer(address,uint256)");
+        c.add_address("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045")
+            .add_u256(izan::units::U256::from_u64(1000000));
+        return c;
+    }();
+    const std::vector<uint8_t> raw = call.to_bytes();
+    REQUIRE(raw.size() == 4 + 32 + 32);
+    // Same bytes the hex form spells — the transfer engine feeds these
+    // straight into the transaction's data field.
+    std::string spelled = "0x";
+    static constexpr char digits[] = "0123456789abcdef";
+    for (const uint8_t b : raw) {
+        spelled += digits[b >> 4];
+        spelled += digits[b & 0xf];
+    }
+    CHECK(spelled == call.to_hex());
+    CHECK(spelled.substr(2, 8) == "a9059cbb");
+    // 1'000'000 == 0x0f4240 rides in the last three bytes.
+    CHECK(spelled.substr(spelled.size() - 6) == "0f4240");
+}

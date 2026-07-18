@@ -68,6 +68,15 @@ std::string CallData::to_hex() const
     return out;
 }
 
+std::vector<uint8_t> CallData::to_bytes() const
+{
+    std::vector<uint8_t> out;
+    out.reserve(m_selector.size() + m_words.size());
+    out.insert(out.end(), m_selector.begin(), m_selector.end());
+    out.insert(out.end(), m_words.begin(), m_words.end());
+    return out;
+}
+
 units::U256 decode_u256(std::string_view hex_result)
 {
     if (hex_result.starts_with("0x") || hex_result.starts_with("0X"))

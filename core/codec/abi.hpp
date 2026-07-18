@@ -29,6 +29,10 @@ public:
     // "0x" + selector + words, lowercase hex.
     std::string to_hex() const;
 
+    // selector + words as raw bytes — transaction calldata (the token
+    // transfer engine feeds this straight into Eip1559Tx::data).
+    std::vector<uint8_t> to_bytes() const;
+
 private:
     std::array<uint8_t, 4> m_selector;
     std::vector<uint8_t> m_words;

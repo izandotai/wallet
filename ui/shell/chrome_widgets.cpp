@@ -467,7 +467,7 @@ void draw_custom_title_bar(GLFWwindow* window, ChromeState& app,
         title_min.y + std::floor((kTitleBarHeight - mark_size.y) * 0.5f)));
     ImGui::TextUnformatted("⛩️");
     ImGui::PopFont();
-    const float title_x = title_min.x + 14.0f + mark_size.x + 10.0f;
+    const float title_x = title_min.x + 14.0f + mark_size.x + 6.0f;
     ImGui::SetCursorScreenPos(ImVec2(title_x, text_y));
     ImGui::TextUnformatted(title_text);
     if (show_subtitle && subtitle_text != nullptr) {

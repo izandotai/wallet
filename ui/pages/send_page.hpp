@@ -7,7 +7,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
+#include "domain/assets/token_registry.hpp"
 #include "domain/chains/chain_spec.hpp"
 #include "domain/tx/eip1559.hpp"
 #include "domain/tx/txflow.hpp"
@@ -59,6 +61,15 @@ private:
         bool tx_success = false;
     };
 
+    // One spendable thing: a chain's native coin or one of its
+    // configured ERC-20 tokens. Choosing an asset chooses the chain.
+    struct Asset {
+        int chain = 0;     // index into m_registry.all()
+        std::string symbol;
+        std::string token; // contract address (checksummed), "" = native
+        uint8_t decimals = 18;
+    };
+
     void draw_form(const i18n::Catalog& tr);
     void draw_confirm_dialog(const i18n::Catalog& tr);
     void begin_review();
@@ -68,11 +79,17 @@ private:
     void reset_to_form();
     const chains::ChainSpec& selected_chain() const;
 
+    const Asset& selected_asset() const
+    {
+        return m_assets[std::size_t(m_asset_index)];
+    }
+
     chains::ChainRegistry m_registry;
     VaultPage& m_vault;
 
     Stage m_stage = Stage::Form;
-    int m_chain_index = 0;
+    std::vector<Asset> m_assets;
+    int m_asset_index = 0;
     std::array<char, 64> m_to {};
     std::array<char, 32> m_amount {};
     std::array<char, 256> m_pass {};
@@ -83,14 +100,16 @@ private:
     // The reviewed draft; immutable once the proposal is submitted —
     // keyd signs the queue's copy of exactly these bytes.
     tx::Eip1559Tx m_tx;
-    std::string m_wallet_seen; // last active wallet id; a switch resets
+    std::string m_wallet_seen;  // last active wallet id; a switch resets
     std::string m_from;
-    uint32_t m_account = 0;    // captured at review, rides the envelope
-    uint8_t m_preset = 0;      // derivation preset, captured with the account
+    uint32_t m_account = 0;     // captured at review, rides the envelope
+    uint8_t m_preset = 0;       // derivation preset, captured with the account
     std::string m_to_checked;
+    std::string m_amount_label; // "0.05 ETH", captured at review
+    bool m_token_send = false;  // fee and amount live in different units
     uint64_t m_proposal = 0;
 
-    std::string m_status; // key or verbatim error
+    std::string m_status;       // key or verbatim error
     bool m_status_is_key = false;
     std::shared_ptr<Job> m_job;
 };

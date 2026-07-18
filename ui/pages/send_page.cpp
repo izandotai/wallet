@@ -11,6 +11,7 @@
 
 #include <sodium.h>
 
+#include "core/codec/abi.hpp"
 #include "core/crypto/eth.hpp"
 #include "core/units/decimal.hpp"
 #include "domain/chains/rpc_client.hpp"
@@ -98,6 +99,17 @@ SendPage::SendPage(const std::filesystem::path& data_dir, VaultPage& vault)
           chains::ChainRegistry::from_json(load_file(data_dir / "chains.json")))
     , m_vault(vault)
 {
+    // The spendable menu: every chain's native coin, then its
+    // configured tokens — choosing an asset chooses the chain with it.
+    const assets::TokenRegistry tokens
+        = assets::TokenRegistry::from_json(load_file(data_dir / "tokens.json"));
+    for (int i = 0; i < int(m_registry.all().size()); ++i) {
+        const chains::ChainSpec& chain = m_registry.all()[std::size_t(i)];
+        m_assets.push_back({ i, chain.symbol, "", chain.decimals });
+        for (const assets::TokenSpec* token : tokens.tokens_for(chain.chain_id))
+            m_assets.push_back(
+                { i, token->symbol, token->address, token->decimals });
+    }
 }
 
 SendPage::~SendPage()
@@ -107,7 +119,7 @@ SendPage::~SendPage()
 
 const chains::ChainSpec& SendPage::selected_chain() const
 {
-    return m_registry.all()[std::size_t(m_chain_index)];
+    return m_registry.all()[std::size_t(selected_asset().chain)];
 }
 
 void SendPage::reset_to_form()
@@ -227,21 +239,25 @@ void SendPage::draw_form(const i18n::Catalog& tr)
 
     kit_vspace(0.35f);
 
-    // The amount row carries the network as its badge: the coin being
-    // counted IS the selected chain's native coin.
+    // The amount row carries the asset as its badge — the coin (or
+    // token) being counted, with its network. Picking from the menu
+    // picks both at once.
+    const Asset& asset = selected_asset();
+    const std::string badge = asset.symbol + " · " + chain.name;
     ImGui::SetCursorPosX(left);
     ImGui::SetNextItemWidth(col);
-    bool pick_chain = false;
+    bool pick_asset = false;
     kit_amount_field("##send-amount", m_amount.data(), m_amount.size(),
-        chain.name.c_str(), &pick_chain);
-    if (pick_chain)
-        ImGui::OpenPopup("##send-chain-pop");
-    if (kit_menu_begin("##send-chain-pop")) {
-        for (int i = 0; i < int(m_registry.all().size()); ++i) {
-            const chains::ChainSpec& c = m_registry.all()[std::size_t(i)];
+        badge.c_str(), &pick_asset);
+    if (pick_asset)
+        ImGui::OpenPopup("##send-asset-pop");
+    if (kit_menu_begin("##send-asset-pop")) {
+        for (int i = 0; i < int(m_assets.size()); ++i) {
+            const Asset& a = m_assets[std::size_t(i)];
+            const chains::ChainSpec& c = m_registry.all()[std::size_t(a.chain)];
             if (kit_menu_item(
-                    c.name.c_str(), c.symbol.c_str(), i == m_chain_index))
-                m_chain_index = i;
+                    a.symbol.c_str(), c.name.c_str(), i == m_asset_index))
+                m_asset_index = i;
         }
         kit_menu_end();
     }
@@ -296,12 +312,28 @@ void SendPage::begin_review()
 {
     m_status.clear();
     m_to_checked = crypto::eth_checksum_address(m_to.data());
+    const Asset& asset = selected_asset();
     try {
         m_tx = tx::Eip1559Tx {};
         m_tx.chain_id = selected_chain().chain_id;
-        m_tx.to = address_bytes(m_to_checked);
-        m_tx.value
-            = units::parse_units(m_amount.data(), selected_chain().decimals);
+        const units::U256 amount
+            = units::parse_units(m_amount.data(), asset.decimals);
+        if (asset.token.empty()) {
+            m_tx.to = address_bytes(m_to_checked);
+            m_tx.value = amount;
+        } else {
+            // A token send is a call on the token contract; the human's
+            // recipient rides inside the calldata, reviewed and signed
+            // as part of exactly these bytes.
+            m_tx.to = address_bytes(asset.token);
+            m_tx.data = codec::CallData("transfer(address,uint256)")
+                            .add_address(m_to_checked)
+                            .add_u256(amount)
+                            .to_bytes();
+        }
+        m_amount_label
+            = units::format_units(amount, asset.decimals) + " " + asset.symbol;
+        m_token_send = !asset.token.empty();
     } catch (const std::exception&) {
         m_status = "send.err.amount";
         m_status_is_key = true;
@@ -428,8 +460,7 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
     }
 
     const chains::ChainSpec& chain = selected_chain();
-    const std::string amount
-        = units::format_units(m_tx.value, chain.decimals) + " " + chain.symbol;
+    const std::string& amount = m_amount_label;
 
     // An elided value must stay reviewable: hovering any shortened row
     // reveals the whole thing.
@@ -476,15 +507,19 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
             = m_tx.max_fee_per_gas.checked_mul_u64(m_tx.gas_limit);
         const std::string fee
             = units::format_units(fee_max, chain.decimals) + " " + chain.symbol;
-        const std::string total
-            = units::format_units(
-                  m_tx.value.checked_add(fee_max), chain.decimals)
-            + " " + chain.symbol;
 
         row(tr("send.from"), m_vault.active_name() + " · " + m_from);
         row(tr("send.to"), m_to_checked);
         row(tr("send.fee_max"), "≤ " + fee);
-        row(tr("send.total_max"), "≤ " + total);
+        // A native send can honestly sum coin and fee; a token send
+        // cannot — the amount and the fee live in different units.
+        if (!m_token_send) {
+            const std::string total
+                = units::format_units(
+                      m_tx.value.checked_add(fee_max), chain.decimals)
+                + " " + chain.symbol;
+            row(tr("send.total_max"), "≤ " + total);
+        }
 
         char plumbing[128];
         std::snprintf(plumbing, sizeof plumbing,
