@@ -195,29 +195,37 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
                         && std::size_t(m_qr_index) < family_books[1].size()
                         && family_books[1][std::size_t(m_qr_index)]
                             == addresses[std::size_t(m_qr_index)]));
-            if (btc_up && btc_preset != 0) {
-                static constexpr const char* kFmt[4]
-                    = { "1…", "3…", "bc1q", "bc1p" };
-                constexpr uint8_t kFirst = 3; // DerivePreset::BtcLegacy
-                float row = 0;
-                for (int f = 0; f < 4; ++f)
-                    row += kit_button_width(kFmt[f])
-                        + ImGui::GetStyle().ItemSpacing.x;
-                ImGui::SetCursorPosX((ImGui::GetWindowWidth() - row) * 0.5f);
+            // The format slot holds its height whichever face is up —
+            // a dialog must not breathe when the family switches.
+            if (any && btc_preset != 0) {
                 ImGui::PushFont(nullptr, kit_caption_size());
-                for (uint8_t f = 0; f < 4; ++f) {
-                    ImGui::PushID(100 + f);
-                    const bool on = btc_preset == kFirst + f;
-                    if (on ? kit_primary_button(kFmt[f])
-                           : kit_subtle_button(kFmt[f])) {
-                        ev.type = Event::Type::BtcFormat;
-                        ev.index = uint32_t(kFirst + f);
+                const float slot_h = ImGui::GetFrameHeight();
+                if (btc_up) {
+                    static constexpr const char* kFmt[4]
+                        = { "1…", "3…", "bc1q", "bc1p" };
+                    constexpr uint8_t kFirst = 3; // DerivePreset::BtcLegacy
+                    float row = 0;
+                    for (int f = 0; f < 4; ++f)
+                        row += kit_button_width(kFmt[f])
+                            + ImGui::GetStyle().ItemSpacing.x;
+                    ImGui::SetCursorPosX(
+                        (ImGui::GetWindowWidth() - row) * 0.5f);
+                    for (uint8_t f = 0; f < 4; ++f) {
+                        ImGui::PushID(100 + f);
+                        const bool on = btc_preset == kFirst + f;
+                        if (on ? kit_primary_button(kFmt[f])
+                               : kit_subtle_button(kFmt[f])) {
+                            ev.type = Event::Type::BtcFormat;
+                            ev.index = uint32_t(kFirst + f);
+                        }
+                        ImGui::PopID();
+                        ImGui::SameLine();
                     }
-                    ImGui::PopID();
-                    ImGui::SameLine();
+                    ImGui::NewLine();
+                } else {
+                    ImGui::Dummy(ImVec2(0.0f, slot_h));
                 }
                 ImGui::PopFont();
-                ImGui::NewLine();
                 kit_vspace(0.4f);
             }
             const auto& picked = m_qr_family >= 0
