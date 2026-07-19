@@ -32,4 +32,15 @@ struct TokenProbe {
 
 TokenProbe probe_token(chains::RpcClient& rpc, std::string_view token);
 
+// ERC-20 allowance(owner, spender) — how much the spender may already
+// move; the swap flow asks before proposing an approval.
+units::U256 erc20_allowance(chains::RpcClient& rpc, std::string_view token,
+    std::string_view owner, std::string_view spender);
+
+// approve(spender, amount) calldata — the transaction engine feeds it
+// straight into Eip1559Tx::data. Exact-amount approvals only; this
+// wallet never asks anyone to sign an unlimited one.
+std::vector<uint8_t> erc20_approve_calldata(
+    std::string_view spender, const units::U256& amount);
+
 }

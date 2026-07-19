@@ -42,6 +42,28 @@ units::U256 erc20_balance(
             + "\"},\"latest\"]"));
 }
 
+units::U256 erc20_allowance(chains::RpcClient& rpc, std::string_view token,
+    std::string_view owner, std::string_view spender)
+{
+    const std::string contract = require_address(token);
+    const std::string data = codec::CallData("allowance(address,address)")
+                                 .add_address(require_address(owner))
+                                 .add_address(require_address(spender))
+                                 .to_hex();
+    return codec::decode_u256(rpc.call_string("eth_call",
+        "[{\"to\":\"" + contract + "\",\"data\":\"" + data
+            + "\"},\"latest\"]"));
+}
+
+std::vector<uint8_t> erc20_approve_calldata(
+    std::string_view spender, const units::U256& amount)
+{
+    return codec::CallData("approve(address,uint256)")
+        .add_address(require_address(spender))
+        .add_u256(amount)
+        .to_bytes();
+}
+
 TokenProbe probe_token(chains::RpcClient& rpc, std::string_view token)
 {
     const std::string contract = require_address(token);

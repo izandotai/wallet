@@ -238,6 +238,7 @@ add_library(izan_domain STATIC
     domain/assets/token_registry.cpp
     domain/tx/eip1559.cpp
     domain/tx/txflow.cpp
+    domain/swap/lifi.cpp
 )
 target_include_directories(izan_domain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_domain PUBLIC izan_units
@@ -411,6 +412,7 @@ add_executable(izan_tests
     tests/linkbits_test.cpp
     tests/proposals_test.cpp
     tests/local_clock_test.cpp
+    tests/swap_test.cpp
 )
 target_link_libraries(izan_tests PRIVATE izan_crypto izan_secure izan_units
     izan_codec izan_domain izan_i18n izan_platform doctest::doctest)
