@@ -7,6 +7,7 @@
 #include <cstdlib>
 
 #include "domain/chains/chain_spec.hpp"
+#include "domain/sol/sol_tx.hpp"
 #include "domain/sol/solana.hpp"
 
 TEST_CASE("solana addresses validate by decoding, never by eye")
@@ -78,4 +79,78 @@ TEST_CASE("a signature feed keeps its moments and its failures")
     CHECK(sigs[1].failed);
 
     CHECK_THROWS(izan::sol::parse_signatures("{\"value\":1}"));
+}
+
+TEST_CASE("compact-u16 walks its boundaries both ways")
+{
+    auto enc = [](uint16_t v) {
+        std::vector<uint8_t> out;
+        izan::sol::put_compact_u16(out, v);
+        return out;
+    };
+    CHECK(enc(0) == std::vector<uint8_t> { 0x00 });
+    CHECK(enc(127) == std::vector<uint8_t> { 0x7f });
+    CHECK(enc(128) == std::vector<uint8_t> { 0x80, 0x01 });
+    CHECK(enc(16383) == std::vector<uint8_t> { 0xff, 0x7f });
+    CHECK(enc(16384) == std::vector<uint8_t> { 0x80, 0x80, 0x01 });
+    CHECK(enc(65535) == std::vector<uint8_t> { 0xff, 0xff, 0x03 });
+    for (uint32_t v : { 0u, 127u, 128u, 16383u, 16384u, 65535u }) {
+        const auto bytes = enc(uint16_t(v));
+        std::size_t pos = 0;
+        CHECK(izan::sol::take_compact_u16(bytes, pos) == v);
+        CHECK(pos == bytes.size());
+    }
+    std::size_t pos = 0;
+    CHECK_THROWS(izan::sol::take_compact_u16(
+        std::vector<uint8_t> { 0x80, 0x80, 0x80, 0x01 }, pos));
+}
+
+TEST_CASE("a transfer message survives the round trip and nothing else passes")
+{
+    const char* alice = "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk";
+    const char* bob = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+    std::array<uint8_t, 32> hash {};
+    for (int i = 0; i < 32; ++i)
+        hash[std::size_t(i)] = uint8_t(i + 1);
+    const auto msg
+        = izan::sol::encode_transfer_message(alice, bob, 12345678, hash);
+    // Fixed grammar: 3 header + 1 count + 96 keys + 32 hash + 1 count
+    // + 1 idx + 1 count + 2 accounts + 1 len + 12 data.
+    CHECK(msg.size() == 150);
+    const auto back = izan::sol::parse_transfer_message(msg);
+    CHECK(back.from == alice);
+    CHECK(back.to == bob);
+    CHECK(back.lamports == 12345678);
+    CHECK(back.blockhash == hash);
+
+    CHECK_THROWS(izan::sol::encode_transfer_message(alice, alice, 1, hash));
+    CHECK_THROWS(izan::sol::encode_transfer_message(alice, bob, 0, hash));
+    CHECK_THROWS(izan::sol::encode_transfer_message("junk", bob, 1, hash));
+
+    // The whitelist: every tampered shape must be refused.
+    auto tamper = [&](std::size_t at, uint8_t v) {
+        auto bad = msg;
+        bad[at] = v;
+        return bad;
+    };
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(0, 2)));   // 2 sigs
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(3, 4)));   // 4 accts
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(70, 1)));  // program
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(132, 2))); // 2 instr
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(133, 1))); // prog idx
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(138, 1))); // tag
+    auto truncated = msg;
+    truncated.pop_back();
+    CHECK_THROWS(izan::sol::parse_transfer_message(truncated));
+    auto trailing = msg;
+    trailing.push_back(0);
+    CHECK_THROWS(izan::sol::parse_transfer_message(trailing));
+
+    // signature || message, one signature slot.
+    std::array<uint8_t, 64> sig {};
+    sig[0] = 0xAA;
+    const auto tx = izan::sol::assemble_tx(sig, msg);
+    CHECK(tx.size() == 1 + 64 + msg.size());
+    CHECK(tx[0] == 1);
+    CHECK(tx[1] == 0xAA);
 }

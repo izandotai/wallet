@@ -241,6 +241,7 @@ add_library(izan_domain STATIC
     domain/swap/lifi.cpp
     domain/btc/esplora.cpp
     domain/sol/solana.cpp
+    domain/sol/sol_tx.cpp
 )
 target_include_directories(izan_domain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(izan_domain PUBLIC izan_units
