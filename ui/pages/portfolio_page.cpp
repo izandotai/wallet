@@ -513,8 +513,10 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
     }
 
     // The door to the user's own token list — only when a wallet is
-    // on stage; a locked page has nothing to add to.
-    if (!mine.empty()) {
+    // on stage; a locked page has nothing to add to. (`key` is the
+    // joined faces, empty when every family is; the array itself is
+    // never "empty" — std::array::empty() answers for the type.)
+    if (!key.empty()) {
         kit_vspace(0.35f);
         centered_x(kit_button_width(tr("portfolio.addtoken")));
         if (kit_link_button(tr("portfolio.addtoken"))) {

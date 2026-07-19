@@ -778,7 +778,15 @@ void SwapPage::draw_search_dialog(const i18n::Catalog& tr)
             return has(t.symbol) || has(t.name) || has(t.address);
         };
         int shown = 0;
-        ImGui::BeginChild("##swap-search-list", ImVec2(content, em * 14.0f));
+        // The list breathes: padded on every side, and each row's
+        // width stops short of the scrollbar so the trailing name
+        // never dives under it.
+        ImGui::PushStyleVar(
+            ImGuiStyleVar_WindowPadding, ImVec2(em * 0.6f, em * 0.45f));
+        ImGui::BeginChild("##swap-search-list", ImVec2(content, em * 14.0f),
+            ImGuiChildFlags_AlwaysUseWindowPadding);
+        const float row_w
+            = content - em * 1.2f - ImGui::GetStyle().ScrollbarSize;
         for (const swap::TokenListing& t : cached->second) {
             if (!matches(t))
                 continue;
@@ -786,7 +794,7 @@ void SwapPage::draw_search_dialog(const i18n::Catalog& tr)
                 break;
             ImGui::PushID(shown);
             if (kit_menu_item_icon(t.symbol.c_str(), t.symbol.c_str(),
-                    t.name.c_str(), false, content)) {
+                    t.name.c_str(), false, row_w)) {
                 // An already-listed address is re-selected, not
                 // duplicated; anything new becomes a session asset.
                 int found = -1;
@@ -809,6 +817,7 @@ void SwapPage::draw_search_dialog(const i18n::Catalog& tr)
         if (shown == 0)
             centered_caption(tr("swap.search.empty"));
         ImGui::EndChild();
+        ImGui::PopStyleVar();
     }
     kit_vspace(0.3f);
     const float button_w = kit_button_width(tr("ui.back"));
