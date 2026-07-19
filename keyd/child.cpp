@@ -341,13 +341,35 @@ int child_main(int argc, char** argv)
                     is_sol = preset_family(body.preset) == ChainFamily::Sol;
                     is_btc = preset_family(body.preset) == ChainFamily::Btc;
                     if (is_sol) {
-                        // Two admissible shapes, nothing else: the
-                        // bare System transfer, or the fixed SPL
-                        // create-and-transferChecked pair.
+                        // Three admissible shapes: the bare System
+                        // transfer, the fixed SPL pair, or an
+                        // aggregator-built swap. The swap cannot be
+                        // read byte for byte (versioned, lookup
+                        // tables), so the check drops to the EVM swap
+                        // lane's level: the single signer and fee
+                        // payer must be this very account — nobody
+                        // else's transaction gets our name on it.
+                        bool readable = false;
                         try {
                             sol::parse_transfer_message(body.tx);
+                            readable = true;
                         } catch (const std::exception&) {
-                            sol::parse_spl_transfer(body.tx);
+                        }
+                        if (!readable)
+                            try {
+                                sol::parse_spl_transfer(body.tx);
+                                readable = true;
+                            } catch (const std::exception&) {
+                            }
+                        if (!readable) {
+                            const std::string payer
+                                = sol::message_fee_payer(body.tx);
+                            if (payer
+                                != account_address(
+                                    *opened, body.account, body.preset))
+                                throw std::invalid_argument(
+                                    "keyd: swap fee payer is not this "
+                                    "account");
                         }
                         sol_signature = sign_sol_payload(
                             *opened, body.tx, body.account, body.preset);

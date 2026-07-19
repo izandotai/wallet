@@ -57,6 +57,7 @@
     "swap.title": "Swap",
     "swap.receive": "You receive (at least)",
     "swap.more": "More tokens…",
+    "swap.mint": "Token mint address",
     "swap.search": "Search name or symbol",
     "swap.search.empty": "No match",
     "swap.route": "Route",

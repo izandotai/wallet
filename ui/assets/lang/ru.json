@@ -57,6 +57,7 @@
     "swap.title": "Обмен",
     "swap.receive": "Вы получите (минимум)",
     "swap.more": "Другие токены…",
+    "swap.mint": "Адрес минта токена",
     "swap.search": "Поиск по имени или символу",
     "swap.search.empty": "Нет совпадений",
     "swap.route": "Маршрут",

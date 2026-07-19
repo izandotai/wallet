@@ -756,3 +756,45 @@ TEST_CASE("keyd proposals: the SPL shape is the second and last word")
     REQUIRE(b58tobin(pub, &pubSize, own->c_str()));
     CHECK(ed25519_sign_open(msg.data(), msg.size(), pub, sig->data()) == 0);
 }
+
+TEST_CASE("keyd proposals: an aggregator swap signs only for its own payer")
+{
+    const std::string vaultPath = make_test_vault("correct horse");
+    const std::string auditPath = temp_file("proposals_swap.audit");
+    std::filesystem::remove(auditPath);
+    KeydClient keyd = KeydClient::spawn(self_exe(), vaultPath, auditPath);
+    REQUIRE(keyd.unlock(sb_from("correct horse")));
+    const uint8_t sol = uint8_t(izan::keyd::DerivePreset::SolPhantom);
+    const auto own = keyd.address(0, sol);
+    REQUIRE(own);
+
+    auto versioned = [&](const std::string& payer) {
+        uint8_t pk[32];
+        std::size_t sz = sizeof pk;
+        REQUIRE(b58tobin(pk, &sz, payer.c_str()));
+        std::vector<uint8_t> m { 0x80, 1, 0, 0, 1 };
+        m.insert(m.end(), pk, pk + 32);
+        m.insert(m.end(), 32, 0x55); // blockhash
+        m.push_back(0);              // no instructions (shape only)
+        m.push_back(0);              // no lookup tables
+        return m;
+    };
+    const auto mine = versioned(*own);
+    const auto id = keyd.submit_ui(izan::keyd::make_envelope(
+        izan::keyd::DerivePreset::SolPhantom, 0, mine));
+    REQUIRE(id);
+    const auto sig = keyd.approve_sol(*id, sb_from("correct horse"));
+    REQUIRE(sig);
+    uint8_t pub[32];
+    std::size_t pubSize = sizeof pub;
+    REQUIRE(b58tobin(pub, &pubSize, own->c_str()));
+    CHECK(ed25519_sign_open(mine.data(), mine.size(), pub, sig->data()) == 0);
+
+    // Somebody else's transaction never gets our name on it.
+    const auto theirs
+        = versioned("Hh8QwFUA6MtVu1qAoq12ucvFHNwCcVTV7hpWjeY1Hztb");
+    const auto badId = keyd.submit_ui(izan::keyd::make_envelope(
+        izan::keyd::DerivePreset::SolPhantom, 0, theirs));
+    REQUIRE(badId);
+    CHECK(!keyd.approve_sol(*badId, sb_from("correct horse")));
+}

@@ -15,6 +15,8 @@
 #include "core/units/decimal.hpp"
 #include "domain/assets/balances.hpp"
 #include "domain/chains/rpc_client.hpp"
+#include "domain/sol/sol_tx.hpp"
+#include "domain/sol/solana.hpp"
 #include "keyd/signer.hpp"
 #include "ui/shell/ime.hpp"
 #include "ui/widgets/kit.hpp"
@@ -107,8 +109,13 @@ SwapPage::SwapPage(const std::filesystem::path& data_dir,
     }
     for (int i = 0; i < int(m_registry.all().size()); ++i) {
         const chains::ChainSpec& chain = m_registry.all()[std::size_t(i)];
+        if (chain.family == "sol") {
+            // The Jupiter lane: the native coin sells, any mint buys.
+            m_assets.push_back({ i, chain.symbol, "", chain.decimals });
+            continue;
+        }
         if (!chain.is_evm())
-            continue; // non-EVM families have no send/swap engine yet
+            continue;
         m_assets.push_back({ i, chain.symbol, "", chain.decimals });
         for (const assets::TokenSpec* token : tokens.tokens_for(chain.chain_id))
             m_assets.push_back(
@@ -186,6 +193,20 @@ void SwapPage::poll_job()
         if (m_stage == Stage::Quoting
             || (m_job->requote && m_stage == Stage::Review)) {
             const bool first = m_stage == Stage::Quoting;
+            if (m_sol_lane) {
+                m_jq = m_job->jq;
+                m_out_dec = m_job->out_dec;
+                m_receive_label = "≥ "
+                    + units::format_units_display(
+                        units::U256::from_u64(m_jq.out_min), m_out_dec);
+                m_quoted_at = ImGui::GetTime();
+                if (first) {
+                    m_stage = Stage::Review;
+                    m_focus_pass = true;
+                }
+                m_job.reset();
+                return;
+            }
             m_quote = m_job->quote;
             m_need_approve = m_job->need_approve;
             // The approval, when needed: exact amount, first in line.
@@ -336,6 +357,41 @@ void SwapPage::draw_form(const i18n::Catalog& tr)
     ImGui::SetCursorPosX(left);
     ImGui::TextDisabled("%s", tr("swap.receive"));
     ImGui::PopFont();
+    m_sol_lane = selected_chain().family == "sol";
+    if (m_sol_lane) {
+        // Any mint by address — the buy side of the Jupiter lane.
+        ImGui::SetCursorPosX(left);
+        ImGui::SetNextItemWidth(col);
+        kit_text_field(
+            "##swap-mint", tr("swap.mint"), m_mint.data(), m_mint.size());
+        const bool mint_present = m_mint[0] != ' ';
+        const bool mint_valid
+            = mint_present && sol::valid_address(m_mint.data());
+        if (mint_present && !mint_valid)
+            centered_caption(tr("send.err.address"));
+        kit_vspace(0.6f);
+        const bool unlocked_sol
+            = m_vault.unlocked() && m_vault.keyd() != nullptr;
+        const std::string sender_sol = m_vault.family_address("sol");
+        if (!unlocked_sol)
+            centered_caption(tr("send.state.locked"));
+        else if (sender_sol.empty())
+            centered_caption(tr("send.err.family"));
+        const bool ready_sol = unlocked_sol && !sender_sol.empty() && mint_valid
+            && m_amount[0] != ' ';
+        ImGui::SetCursorPosX(left);
+        ImGui::BeginDisabled(!ready_sol || m_job != nullptr);
+        if (kit_primary_button(tr("swap.review"), col))
+            begin_review();
+        ImGui::EndDisabled();
+        if (m_stage == Stage::Form && !m_status.empty()) {
+            kit_vspace(0.25f);
+            error_note(
+                m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(), left,
+                col);
+        }
+        return;
+    }
     ImGui::SetCursorPosX(left);
     if (kit_select_begin("##swap-buy", buy().symbol.c_str(), col)) {
         for (int i = 0; i < int(m_assets.size()); ++i) {
@@ -444,7 +500,8 @@ void SwapPage::begin_review()
         + from_asset.symbol;
 
     m_account = m_vault.active_account();
-    m_preset = m_vault.active_preset();
+    m_preset = m_sol_lane ? m_vault.family_preset_value("sol")
+                          : m_vault.active_preset();
     auto from = m_vault.keyd()->address(m_account, m_preset);
     if (!from) {
         m_status = m_vault.keyd()->last_error();
@@ -464,6 +521,31 @@ void SwapPage::start_quote(bool requote)
     auto job = std::make_shared<Job>();
     job->requote = requote;
     m_job = job;
+    if (m_sol_lane) {
+        // WSOL in, the pasted mint out; decimals asked of the chain,
+        // the only authority a strange token has.
+        std::string dec = m_quote_amount.to_dec();
+        uint64_t lamports = 0;
+        std::from_chars(dec.data(), dec.data() + dec.size(), lamports);
+        std::thread([job, spec = selected_chain(),
+                        mint = std::string(m_mint.data()), lamports]() {
+            try {
+                job->jq = sol::jup_quote(
+                    "So11111111111111111111111111111111111111112", mint,
+                    lamports, 100);
+                chains::RpcClient rpc(spec);
+                job->out_dec = sol::mint_decimals(rpc, mint);
+                job->phase.store(1);
+            } catch (const std::exception& e) {
+                job->error = e.what();
+                job->phase.store(2);
+            } catch (...) {
+                job->error = "worker failed";
+                job->phase.store(2);
+            }
+        }).detach();
+        return;
+    }
     const std::string from_token
         = from_asset.token.empty() ? swap::kNativeToken : from_asset.token;
     const std::string to_token
@@ -511,6 +593,63 @@ void SwapPage::confirm_swap()
     if (!m_vault.keyd()) {
         m_status = "keyd gone";
         m_status_is_key = false;
+        return;
+    }
+    if (m_sol_lane) {
+        SecureBytes pass = take_secret(m_pass);
+        auto job = std::make_shared<Job>();
+        m_job = job;
+        m_stage = Stage::Delivering;
+        m_status.clear();
+        // Build fresh (the blockhash inside is perishable), show keyd,
+        // approve, stitch the signature back, broadcast, watch.
+        std::thread([job, keyd = m_vault.keyd(), spec = selected_chain(),
+                        jq = m_jq, from = m_from, account = m_account,
+                        preset = m_preset, pass = std::move(pass)]() mutable {
+            try {
+                const std::vector<uint8_t> tx = sol::jup_swap_tx(jq, from);
+                const auto msg = sol::message_of(tx);
+                auto id = keyd->submit_ui(
+                    keyd::make_envelope(keyd::DerivePreset(preset), account,
+                        std::vector<uint8_t>(msg.begin(), msg.end())));
+                if (!id)
+                    throw std::runtime_error(keyd->last_error());
+                auto sig = keyd->approve_sol(*id, pass);
+                pass.reset();
+                if (!sig)
+                    throw std::runtime_error(keyd->last_error());
+                const std::vector<uint8_t> full
+                    = sol::inject_signature(tx, *sig);
+                job->step.store(1);
+                chains::RpcClient rpc(std::move(spec));
+                job->tx_hash = sol::send_transaction(rpc, full);
+                job->step.store(2);
+                for (int tries = 0; tries < 60; ++tries) {
+                    const sol::SigStatus st
+                        = sol::signature_status(rpc, job->tx_hash);
+                    if (st == sol::SigStatus::Confirmed
+                        || st == sol::SigStatus::Finalized) {
+                        job->tx_success = true;
+                        job->phase.store(1);
+                        return;
+                    }
+                    if (st == sol::SigStatus::Failed) {
+                        job->tx_success = false;
+                        job->phase.store(1);
+                        return;
+                    }
+                    std::this_thread::sleep_for(std::chrono::seconds(2));
+                }
+                throw std::runtime_error("no confirmation after 2 minutes; "
+                                         "check the explorer");
+            } catch (const std::exception& e) {
+                job->error = e.what();
+                job->phase.store(2);
+            } catch (...) {
+                job->error = "worker failed";
+                job->phase.store(2);
+            }
+        }).detach();
         return;
     }
     // Both transactions join the queue before the passphrase moves:
@@ -733,6 +872,42 @@ void SwapPage::draw_confirm_dialog(const i18n::Catalog& tr)
         kit_dialog_header_icon(
             "🔁", m_pay_label.c_str(), m_receive_label.c_str());
 
+        if (m_sol_lane) {
+            row(tr("send.from"), m_vault.active_name() + " · " + m_from);
+            row(tr("swap.route"),
+                (m_jq.route_label.empty() ? std::string("Jupiter")
+                                          : m_jq.route_label)
+                    + " · " + chain.name);
+            row(tr("swap.receive"),
+                units::format_units_display(
+                    units::U256::from_u64(m_jq.out_min), m_out_dec));
+            if (!m_jq.price_impact_pct.empty())
+                centered_caption(
+                    ("impact " + m_jq.price_impact_pct.substr(0, 6) + "%")
+                        .c_str());
+            kit_vspace(0.4f);
+            if (m_focus_pass) {
+                kit_focus_here();
+                m_focus_pass = false;
+            }
+            kit_dialog_field_width();
+            const bool submitted_sol = secret_field(
+                "##swap-pass", m_pass, m_secret_focus, tr("send.passphrase"));
+            if (!m_status.empty())
+                error_note(
+                    m_status_is_key ? tr(m_status.c_str()) : m_status.c_str(),
+                    ImGui::GetCursorPosX(), content);
+            const bool has_pass_sol = strnlen(m_pass.data(), m_pass.size()) > 0;
+            const int choice_sol = kit_dialog_buttons(
+                tr("ui.cancel"), tr("swap.confirm"), has_pass_sol);
+            if (choice_sol == 1) {
+                cancel_flow();
+                kit_dialog_close();
+            } else if (choice_sol == 2 || (submitted_sol && has_pass_sol)) {
+                confirm_swap();
+            }
+            break;
+        }
         const uint64_t total_gas = m_tx_swap.gas_limit
             + (m_need_approve ? m_tx_approve.gas_limit : 0);
         const units::U256 fee_max

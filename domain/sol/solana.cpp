@@ -287,3 +287,28 @@ bool account_exists(chains::RpcClient& rpc, std::string_view address)
 }
 
 }
+
+namespace izan::sol {
+
+uint8_t mint_decimals(chains::RpcClient& rpc, std::string_view mint)
+{
+    if (!valid_address(mint))
+        throw std::invalid_argument(
+            "not a solana address: " + std::string(mint));
+    const std::string answer
+        = rpc.call("getTokenSupply", "[\"" + std::string(mint) + "\"]");
+    glz::json_t doc;
+    if (glz::read_json(doc, answer) || !doc.is_object())
+        throw std::runtime_error("sol: getTokenSupply not an object");
+    const auto& obj = doc.get_object();
+    const auto value = obj.find("value");
+    if (value == obj.end() || !value->second.is_object())
+        throw std::runtime_error("sol: token supply missing value");
+    const auto dec = value->second.get_object().find("decimals");
+    if (dec == value->second.get_object().end() || !dec->second.is_number()
+        || dec->second.get_number() < 0 || dec->second.get_number() > 255)
+        throw std::runtime_error("sol: token decimals unreadable");
+    return uint8_t(dec->second.get_number());
+}
+
+}

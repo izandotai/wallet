@@ -79,7 +79,7 @@ FetchContent_Declare(glaze
 # pin the commit.
 FetchContent_Declare(izan_crypto
     GIT_REPOSITORY https://github.com/izandotai/izan-crypto.git
-    GIT_TAG 2ee297d
+    GIT_TAG 820a5ef
     EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(doctest sodium glaze Boost izan_crypto)
@@ -155,6 +155,7 @@ add_library(izan_domain STATIC
     domain/swap/lifi.cpp
     domain/btc/coin_select.cpp
     domain/btc/esplora.cpp
+    domain/sol/jupiter.cpp
     domain/sol/solana.cpp
 )
 target_include_directories(izan_domain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

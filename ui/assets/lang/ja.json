@@ -57,6 +57,7 @@
     "swap.title": "スワップ",
     "swap.receive": "最低受取額",
     "swap.more": "その他のトークン…",
+    "swap.mint": "トークンのミントアドレス",
     "swap.search": "名前またはシンボルを検索",
     "swap.search.empty": "一致なし",
     "swap.route": "ルート",

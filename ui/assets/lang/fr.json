@@ -57,6 +57,7 @@
     "swap.title": "Échanger",
     "swap.receive": "Vous recevrez (au moins)",
     "swap.more": "Plus de jetons…",
+    "swap.mint": "Adresse du mint du jeton",
     "swap.search": "Rechercher nom ou symbole",
     "swap.search.empty": "Aucun résultat",
     "swap.route": "Itinéraire",

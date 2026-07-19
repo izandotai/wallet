@@ -72,6 +72,10 @@ uint64_t rent_exempt_minimum(chains::RpcClient& rpc, uint64_t size = 0);
 // getAccountInfo, existence only — a null value is an unopened door.
 bool account_exists(chains::RpcClient& rpc, std::string_view address);
 
+// The decimals a mint declares on-chain, via getTokenSupply — the
+// only authority a strange token has.
+uint8_t mint_decimals(chains::RpcClient& rpc, std::string_view mint);
+
 // ---- SPL tokens: the holdings under the token program ----
 
 struct SplHolding {

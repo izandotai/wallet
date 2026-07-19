@@ -57,6 +57,7 @@
     "swap.title": "Scambia",
     "swap.receive": "Riceverai (almeno)",
     "swap.more": "Altri token…",
+    "swap.mint": "Indirizzo del mint del token",
     "swap.search": "Cerca nome o simbolo",
     "swap.search.empty": "Nessun risultato",
     "swap.route": "Percorso",

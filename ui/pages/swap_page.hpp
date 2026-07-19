@@ -13,6 +13,7 @@
 
 #include "domain/assets/token_registry.hpp"
 #include "domain/chains/chain_spec.hpp"
+#include "domain/sol/jupiter.hpp"
 #include "domain/swap/lifi.hpp"
 #include "domain/tx/eip1559.hpp"
 #include "domain/tx/txflow.hpp"
@@ -66,6 +67,8 @@ private:
         std::string error;
         // quote results
         swap::SwapQuote quote;
+        sol::JupQuote jq;    // the Solana lane's quote
+        uint8_t out_dec = 0; // the bought mint's on-chain decimals
         bool need_approve = false;
         uint64_t nonce = 0;
         uint64_t approve_gas = 0;
@@ -127,6 +130,13 @@ private:
     std::shared_ptr<CatalogJob> m_catalog_job;
     std::array<char, 64> m_search {};
     bool m_open_search = false;
+    // The Solana lane: sell SOL, buy any mint by address, routes by
+    // Jupiter. The aggregator builds the transaction; keyd verifies
+    // the fee payer is this very account before signing.
+    bool m_sol_lane = false;
+    std::array<char, 64> m_mint {};
+    sol::JupQuote m_jq;
+    uint8_t m_out_dec = 9;
     std::array<char, 32> m_amount {};
     std::array<char, 256> m_pass {};
     bool m_ime_disabled = false;
