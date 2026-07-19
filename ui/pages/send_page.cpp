@@ -373,10 +373,12 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     const std::string sender = m_vault.family_address(sol_asset ? "sol"
             : btc_asset                                         ? "btc"
                                                                 : "evm");
-    const bool can_send = !sender.empty()
-        && (!btc_asset
-            || m_vault.family_preset_value("btc")
-                == uint8_t(keyd::DerivePreset::BtcSegwit));
+    // Having an identity and having a spendable script are different
+    // refusals — a taproot wallet must not be told it has no self.
+    const bool btc_format_ok = !btc_asset
+        || m_vault.family_preset_value("btc")
+            == uint8_t(keyd::DerivePreset::BtcSegwit);
+    const bool can_send = !sender.empty() && btc_format_ok;
     if (unlocked && !sender.empty()) {
         ImGui::PushFont(nullptr, kit_caption_size());
         const std::string who = m_vault.active_name() + " · "
