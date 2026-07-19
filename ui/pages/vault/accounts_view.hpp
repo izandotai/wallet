@@ -27,6 +27,7 @@ public:
             Backup,
             LabelEdit,
             RefreshBalance,
+            BtcFormat, // index carries the chosen BTC DerivePreset
         };
         Type type = Type::None;
         const char* err = nullptr;
@@ -54,7 +55,8 @@ public:
         std::span<const std::string> addresses,
         std::span<const std::string> balances, uint32_t active, bool hd,
         bool watch = false,
-        std::array<std::span<const std::string>, 3> family_books = {});
+        std::array<std::span<const std::string>, 3> family_books = {},
+        uint8_t btc_preset = 0);
 
 private:
     int m_qr_family = -1; // -1 = the wallet's own line

@@ -68,7 +68,7 @@ TEST_CASE("the store lists wallets and round-trips their sidecars")
     CHECK(meta.preset == 5);
 
     // Kind badge and per-account notes ride the same sidecar.
-    store.write_meta(id, { "老干妈", 3, 2, 5, ui::kKindHd, { "冷钱包", "" } });
+    store.write_meta(id, { "老干妈", 3, 2, 5, 0, ui::kKindHd, { "冷钱包", "" } });
     const ui::AccountsMeta noted = store.read_meta(id);
     CHECK(noted.kind == ui::kKindHd);
     REQUIRE(noted.labels.size() == 2);
@@ -329,4 +329,37 @@ TEST_CASE("an HD wallet answers for every family, keys stay on their curve")
     watch_legacy.kind = izan::ui::kKindWatch;
     CHECK(izan::ui::wallet_families(watch_legacy)
         == std::vector<std::string> { "evm" });
+}
+
+TEST_CASE("the chosen BTC costume outranks the family default")
+{
+    using izan::keyd::DerivePreset;
+    izan::ui::AccountsMeta hd;
+    hd.kind = izan::ui::kKindHd;
+    hd.preset = uint8_t(DerivePreset::MetaMask);
+    CHECK(izan::ui::family_preset(hd, "btc") == DerivePreset::BtcSegwit);
+    hd.btc_preset = uint8_t(DerivePreset::BtcLegacy);
+    CHECK(izan::ui::family_preset(hd, "btc") == DerivePreset::BtcLegacy);
+    // The override speaks only for BTC.
+    CHECK(izan::ui::family_preset(hd, "evm") == DerivePreset::MetaMask);
+    CHECK(izan::ui::family_preset(hd, "sol") == DerivePreset::SolPhantom);
+
+    // A hand-edited sidecar cannot smuggle a non-BTC preset through
+    // the override slot.
+    const std::string dir
+        = (std::filesystem::temp_directory_path() / "izan_btcfmt_test")
+              .string();
+    std::filesystem::remove_all(dir);
+    izan::ui::WalletStore store { dir };
+    izan::ui::AccountsMeta meta;
+    meta.name = "w";
+    meta.kind = izan::ui::kKindHd;
+    meta.btc_preset = uint8_t(DerivePreset::SolPhantom); // not BTC
+    store.write_meta("aaaa", meta);
+    CHECK(store.read_meta("aaaa").btc_preset == 0);
+    meta.btc_preset = uint8_t(DerivePreset::BtcTaproot);
+    store.write_meta("aaaa", meta);
+    CHECK(store.read_meta("aaaa").btc_preset
+        == uint8_t(DerivePreset::BtcTaproot));
+    std::filesystem::remove_all(dir);
 }

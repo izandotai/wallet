@@ -25,6 +25,10 @@ struct AccountsMeta {
     uint32_t count = 1;
     uint32_t active = 0;
     uint8_t preset = 0;
+    // The wallet's chosen BTC address format (a BTC DerivePreset
+    // value), overriding the family default. 0 = unset — never a BTC
+    // preset, so absence needs no sentinel of its own.
+    uint8_t btc_preset = 0;
     std::string kind;                // kKind*; empty on legacy sidecars
     std::vector<std::string> labels; // per-account notes, index-aligned
     // Watch-only wallets: the observed addresses, public by nature —

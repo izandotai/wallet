@@ -104,6 +104,11 @@ std::vector<std::string> wallet_families(const AccountsMeta& meta)
 keyd::DerivePreset family_preset(
     const AccountsMeta& meta, std::string_view family)
 {
+    // The wallet's own BTC format choice outranks both the birth
+    // preset and the family default — switching formats is a
+    // first-class verb on the receive screen.
+    if (family == "btc" && meta.btc_preset != 0)
+        return keyd::DerivePreset(meta.btc_preset);
     const auto born = keyd::DerivePreset(meta.preset);
     if (family == family_key(keyd::preset_family(born)))
         return born;

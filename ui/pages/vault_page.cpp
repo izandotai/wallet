@@ -271,7 +271,10 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
             m_session.client()
                 && m_session.client()->wallet_kind()
                     == keyd::RevealKind::SeedEntropy,
-            false, books));
+            false, books,
+            wallet_families(m_meta).size() > 1
+                ? uint8_t(family_preset(m_meta, "btc"))
+                : 0));
         break;
     }
     case Mode::Watch:
@@ -456,7 +459,7 @@ void VaultPage::start_create(CreateView::Event ev)
             wallet.entropy = SecureBytes(16);
             randombytes_buf(wallet.entropy.data(), wallet.entropy.size());
             vault::save(path, pass, wallet, vault::kdf_sensitive());
-            store->write_meta(id, { name, 1, 0, 0, kKindHd, {} });
+            store->write_meta(id, { name, 1, 0, 0, 0, kKindHd, {} });
             job->secret = crypto::entropy_to_mnemonic(wallet.entropy);
             job->phase.store(1);
         } catch (const std::exception& e) {
@@ -510,7 +513,7 @@ void VaultPage::start_import(ImportView::Event ev)
         try {
             prove_wallet(wallet, keyd::DerivePreset(preset));
             vault::save(path, pass, wallet, vault::kdf_sensitive());
-            store->write_meta(id, { name, 1, 0, preset, kind, {} });
+            store->write_meta(id, { name, 1, 0, preset, 0, kind, {} });
             job->phase.store(1);
         } catch (const std::exception& e) {
             job->error = e.what();
@@ -625,6 +628,25 @@ void VaultPage::handle_accounts(AccountsView::Event ev)
         m_meta.labels[ev.index] = std::move(ev.label);
         m_store.write_meta(m_active, m_meta);
         break;
+    case AccountsView::Event::Type::BtcFormat: {
+        // One key, another costume: a BTC-born wallet re-dresses its
+        // main line, everyone else flips the sidecar override. The
+        // read-only pages follow by themselves — their follow key is
+        // the address, and the address just changed.
+        const uint8_t chosen = uint8_t(ev.index);
+        if (family_key(keyd::preset_family(keyd::DerivePreset(m_meta.preset)))
+            == std::string("btc")) {
+            m_meta.preset = chosen;
+            m_session.refresh_addresses(m_meta.count, m_meta.preset);
+            fetch_balances();
+        } else {
+            m_meta.btc_preset = chosen;
+        }
+        m_store.write_meta(m_active, m_meta);
+        m_session.refresh_family(
+            "btc", m_meta.count, uint8_t(family_preset(m_meta, "btc")));
+        break;
+    }
     case AccountsView::Event::Type::RefreshBalance:
         fetch_balances(int(ev.index));
         break;

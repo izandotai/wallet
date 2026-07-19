@@ -109,6 +109,10 @@ AccountsMeta WalletStore::read_meta(const std::string& id) const
         meta.active = 0;
     if (meta.preset >= keyd::kDerivePresetCount)
         meta.preset = 0;
+    // Anything but a real BTC preset reads as "unset".
+    if (meta.btc_preset < uint8_t(keyd::DerivePreset::BtcLegacy)
+        || meta.btc_preset > uint8_t(keyd::DerivePreset::BtcTaproot))
+        meta.btc_preset = 0;
     return meta;
 }
 
