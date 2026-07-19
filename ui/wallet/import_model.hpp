@@ -49,12 +49,20 @@ public:
     void select(keyd::DerivePreset preset); // ignored if not offered
 
     // The wallet the current text describes: entropy for a mnemonic, a
-    // single imported key otherwise. nullopt when unrecognized.
+    // single imported key otherwise. nullopt when unrecognized — and
+    // for a watch address, which builds no vault at all.
     std::optional<vault::Wallet> build(std::string_view text) const;
+
+    // Checksummed form of a pasted watch address; empty otherwise.
+    const std::string& watch_address() const
+    {
+        return m_watch;
+    }
 
 private:
     crypto::SecretKind m_kind = crypto::SecretKind::Unrecognized;
     std::array<std::string, keyd::kDerivePresetCount> m_previews {};
+    std::string m_watch;
     uint8_t m_selected = 0;
 };
 

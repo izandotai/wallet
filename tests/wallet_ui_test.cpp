@@ -206,3 +206,49 @@ TEST_CASE("make_envelope and parse_proposal are exact inverses")
     REQUIRE(body.tx.size() == tx.size());
     CHECK(std::equal(tx.begin(), tx.end(), body.tx.begin()));
 }
+
+TEST_CASE("a watch wallet is a sidecar with no vault behind it")
+{
+    TempDir tmp;
+    ui::WalletStore store(tmp.path);
+    constexpr const char* kAddr = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
+
+    const std::string id = store.create_watch("盯着老鲸", kAddr);
+    REQUIRE(store.known(id));
+    // No vault file was ever written — the wallet is its sidecar.
+    CHECK_FALSE(std::filesystem::exists(store.vault_path(id)));
+
+    const auto& listed = store.wallets();
+    REQUIRE(listed.size() == 1);
+    CHECK(listed[0].kind == ui::kKindWatch);
+    CHECK(listed[0].name == "盯着老鲸");
+    CHECK(listed[0].count == 1);
+
+    const ui::AccountsMeta meta = store.read_meta(id);
+    REQUIRE(meta.watch.size() == 1);
+    CHECK(meta.watch[0] == kAddr);
+    CHECK(meta.kind == ui::kKindWatch);
+
+    // Deleting must not trip over the vault that never existed.
+    store.delete_wallet(id);
+    CHECK_FALSE(store.known(id));
+    CHECK_FALSE(std::filesystem::exists(store.meta_path(id)));
+}
+
+TEST_CASE("the import model recognizes a watch address and builds no vault")
+{
+    ui::ImportModel model;
+    // Any-case address normalizes to its EIP-55 form.
+    model.update("0xd8da6bf26964af9d7eed9e03e53415d37aa96045");
+    CHECK(model.kind() == crypto::SecretKind::EthAddress);
+    CHECK(model.recognized());
+    CHECK(model.offered().empty());
+    CHECK(
+        model.watch_address() == "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045");
+    // A watch address describes no spendable wallet.
+    CHECK_FALSE(
+        model.build("0xd8da6bf26964af9d7eed9e03e53415d37aa96045").has_value());
+    // Garbage that merely looks addressish is still refused.
+    model.update("0xd8da6bf26964af9d7eed9e03e53415d37aa9604");
+    CHECK_FALSE(model.recognized());
+}

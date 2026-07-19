@@ -5,6 +5,7 @@
 
 #include "core/crypto/bip39.hpp"
 #include "core/crypto/btc.hpp"
+#include "core/crypto/eth.hpp"
 #include "core/crypto/sol.hpp"
 
 namespace izan::crypto {
@@ -73,6 +74,10 @@ DetectedSecret detect_secret(std::string_view text)
     } else if (auto key = sol_key_from_base58(body)) {
         out.kind = SecretKind::SolKey;
         out.key = std::move(*key);
+    } else if (!eth_checksum_address(body).empty()) {
+        // A bare address is a wallet to watch, not a wallet to spend
+        // from — no key rides along.
+        out.kind = SecretKind::EthAddress;
     }
     return out;
 }

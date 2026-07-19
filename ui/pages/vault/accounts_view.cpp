@@ -26,7 +26,7 @@ void AccountsView::set_labels(
 
 AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     bool& secret_focus, std::span<const std::string> addresses,
-    std::span<const std::string> balances, uint32_t active, bool hd)
+    std::span<const std::string> balances, uint32_t active, bool hd, bool watch)
 {
     Event ev;
     const float em = ImGui::GetFontSize();
@@ -117,20 +117,22 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     }
     kit_group_end();
 
-    kit_vspace(0.6f);
-    ImGui::BeginDisabled(busy);
-    if (kit_subtle_button(tr("vault.lock")))
-        ev.type = Event::Type::Lock;
-    ImGui::SameLine();
-    if (kit_subtle_button(tr("vault.backup"))) {
-        sodium_memzero(m_pass.data(), m_pass.size());
-        m_open_backup = true;
-        m_focus_backup = true;
-    }
-    ImGui::EndDisabled();
-    if (busy) {
+    if (!watch) {
+        kit_vspace(0.6f);
+        ImGui::BeginDisabled(busy);
+        if (kit_subtle_button(tr("vault.lock")))
+            ev.type = Event::Type::Lock;
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", tr("vault.busy"));
+        if (kit_subtle_button(tr("vault.backup"))) {
+            sodium_memzero(m_pass.data(), m_pass.size());
+            m_open_backup = true;
+            m_focus_backup = true;
+        }
+        ImGui::EndDisabled();
+        if (busy) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", tr("vault.busy"));
+        }
     }
 
     // The receive QR: the address as a scannable code, plus the full

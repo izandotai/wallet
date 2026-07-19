@@ -215,9 +215,9 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
         kit_vspace(0.25f);
     }
 
-    // Follow the vault: the active account's holdings, unasked.
-    const std::string mine
-        = m_vault.unlocked() ? m_vault.active_address() : std::string();
+    // Follow the vault: the active account's holdings, unasked —
+    // watch-only wallets included; reading needs no keys.
+    const std::string mine = m_vault.followed_address();
     if (mine != m_followed) {
         m_followed = mine;
         m_rows.clear();

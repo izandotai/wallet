@@ -14,6 +14,7 @@ namespace izan::ui {
 inline constexpr const char* kKindHd = "hd";
 inline constexpr const char* kKindSecp = "secp";
 inline constexpr const char* kKindEd25519 = "ed25519";
+inline constexpr const char* kKindWatch = "watch"; // no vault, no keys
 
 // Sidecar beside each vault file (public data): the display name, the
 // HD account line — how many accounts the user opened, which is
@@ -26,6 +27,9 @@ struct AccountsMeta {
     uint8_t preset = 0;
     std::string kind;                // kKind*; empty on legacy sidecars
     std::vector<std::string> labels; // per-account notes, index-aligned
+    // Watch-only wallets: the observed addresses, public by nature —
+    // a sidecar-only wallet with no vault file at all.
+    std::vector<std::string> watch;
 };
 
 // A wallet's display name is anything the user likes, in any script;
@@ -88,6 +92,11 @@ public:
     // rescanned. The keys are gone unless a backup exists — callers
     // confirm with the human first.
     void delete_wallet(const std::string& id);
+
+    // A watch-only wallet: sidecar only, no vault ever written. The
+    // address arrives already checksummed (the import layer validates).
+    std::string create_watch(
+        std::string_view display, std::string_view address);
 
     static std::string mint_id(std::string_view display);
 

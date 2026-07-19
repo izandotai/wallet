@@ -42,11 +42,15 @@ public:
     // derive).
     void set_labels(std::span<const std::string> labels, std::size_t count);
 
+    // watch = read-only flavor: the lock and backup verbs stay off
+    // the table — there is no vault behind these addresses.
+
     // balances pairs with addresses by index; an empty string means
     // unknown and shows nothing.
     Event draw(const i18n::Catalog& tr, bool busy, bool& secret_focus,
         std::span<const std::string> addresses,
-        std::span<const std::string> balances, uint32_t active, bool hd);
+        std::span<const std::string> balances, uint32_t active, bool hd,
+        bool watch = false);
 
 private:
     std::array<char, 256> m_pass {};

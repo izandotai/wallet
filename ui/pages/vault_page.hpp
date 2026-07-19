@@ -64,13 +64,28 @@ public:
         return m_active_name;
     }
 
-    // The selected account's address while unlocked; empty otherwise.
-    // The send and assets pages follow it.
+    // The selected account's address while unlocked (or watched);
+    // empty otherwise. The send and assets pages follow it.
     std::string active_address() const
     {
-        const auto& book = m_session.addresses();
+        const auto& book
+            = m_mode == Mode::Watch ? m_meta.watch : m_session.addresses();
         return m_meta.active < book.size() ? book[m_meta.active]
                                            : std::string();
+    }
+
+    // True while the active wallet is watch-only: readable everywhere,
+    // spendable nowhere — there is no key and never was.
+    bool watching() const
+    {
+        return m_mode == Mode::Watch;
+    }
+
+    // The address the read-only pages (assets, history) follow: the
+    // active account when unlocked or watching, nothing when locked.
+    std::string followed_address() const
+    {
+        return unlocked() || watching() ? active_address() : std::string();
     }
 
     // The selected account index within the active wallet (always 0
@@ -133,6 +148,7 @@ private:
         ImportForm,
         Locked,
         Unlocked,
+        Watch, // watch-only wallet on stage: no vault, no keyd
     };
 
     struct Job {

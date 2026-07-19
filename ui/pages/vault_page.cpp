@@ -60,8 +60,15 @@ void VaultPage::switch_active(const std::string& id)
     m_meta = m_store.read_meta(id);
     if (!m_meta.name.empty())
         m_active_name = m_meta.name;
-    m_mode = std::filesystem::exists(m_vault_path) ? Mode::Locked
-                                                   : Mode::NoWallets;
+    if (m_meta.kind == kKindWatch) {
+        // Nothing to unlock: the addresses are right in the sidecar.
+        m_mode = Mode::Watch;
+        m_accounts.set_labels(m_meta.labels, uint32_t(m_meta.watch.size()));
+        fetch_balances();
+    } else {
+        m_mode = std::filesystem::exists(m_vault_path) ? Mode::Locked
+                                                       : Mode::NoWallets;
+    }
 }
 
 void VaultPage::set_status(const char* key)
@@ -193,7 +200,7 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     ImGui::Begin((std::string(tr("vault.title")) + "###vault-page").c_str());
     ImGui::PopStyleVar();
 
-    if (m_mode == Mode::Unlocked) {
+    if (m_mode == Mode::Unlocked || m_mode == Mode::Watch) {
         // The header: who this wallet is, and what it is, at a glance.
         const float avatar = em * dl.header_avatar;
         const ImVec2 head = ImGui::GetCursorScreenPos();
@@ -243,6 +250,12 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
                 && m_session.client()->wallet_kind()
                     == keyd::RevealKind::SeedEntropy));
         break;
+    case Mode::Watch:
+        // The same account list, read-only flavor: no lock, no backup,
+        // no deriving — addresses, balances, QR and copy.
+        handle_accounts(m_accounts.draw(tr, busy, m_secret_focus, m_meta.watch,
+            m_balances, m_meta.active, false, true));
+        break;
     }
 
     // Dialog flows hosted by the detail window: create, and the
@@ -283,12 +296,13 @@ void VaultPage::fetch_balances(int only_index)
         return;
     if (m_bal_job)
         return; // single driver: one balance worker at a time
+    const std::vector<std::string>& book
+        = m_mode == Mode::Watch ? m_meta.watch : m_session.addresses();
     std::vector<std::string> addrs;
     if (only_index < 0) {
         m_balances.clear();
-        addrs = m_session.addresses();
+        addrs = book;
     } else {
-        const auto& book = m_session.addresses();
         if (std::size_t(only_index) >= book.size())
             return;
         addrs.push_back(book[std::size_t(only_index)]);
@@ -426,7 +440,17 @@ void VaultPage::start_import(ImportView::Event ev)
         enter(m_store.empty() ? Mode::NoWallets : Mode::Locked);
         return;
     }
-    if (ev.type != ImportView::Event::Type::Submit || !ev.wallet)
+    if (ev.type != ImportView::Event::Type::Submit)
+        return;
+
+    // A watch import is pure filesystem — no vault, no proving, no
+    // job; the wallet exists the moment its sidecar does.
+    if (!ev.watch.empty()) {
+        const std::string id = m_store.create_watch(ev.name, ev.watch);
+        switch_active(id);
+        return;
+    }
+    if (!ev.wallet)
         return;
 
     set_status("vault.busy.creating");

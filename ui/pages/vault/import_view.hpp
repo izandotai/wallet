@@ -27,6 +27,7 @@ public:
         std::string name;
         secure::SecureBytes pass;
         std::optional<vault::Wallet> wallet;
+        std::string watch; // non-empty: a watch-only import, no vault
         uint8_t preset = 0;
     };
 

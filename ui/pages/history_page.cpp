@@ -189,8 +189,7 @@ void HistoryPage::draw(const i18n::Catalog& tr)
     const float avail = ImGui::GetContentRegionAvail().x;
     const bool busy = m_job != nullptr;
 
-    const std::string mine
-        = m_vault.unlocked() ? m_vault.active_address() : std::string();
+    const std::string mine = m_vault.followed_address();
     if (mine != m_followed) {
         m_followed = mine;
         m_rows.clear();

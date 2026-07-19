@@ -12,6 +12,8 @@ const char* kind_badge_key(std::string_view kind)
         return "vault.kind.key";
     if (kind == kKindEd25519)
         return "vault.kind.ed25519";
+    if (kind == kKindWatch)
+        return "vault.kind.watch";
     return "";
 }
 
@@ -58,6 +60,7 @@ std::span<const keyd::DerivePreset> presets_for(crypto::SecretKind kind)
         return kWif;
     case crypto::SecretKind::SolKey:
         return kSolKey;
+    case crypto::SecretKind::EthAddress: // nothing to derive from
     case crypto::SecretKind::Unrecognized:
         break;
     }

@@ -23,6 +23,8 @@ namespace {
             return tr("vault.detect.wif");
         case crypto::SecretKind::SolKey:
             return tr("vault.detect.solkey");
+        case crypto::SecretKind::EthAddress:
+            return tr("vault.detect.watch");
         case crypto::SecretKind::Unrecognized:
             break;
         }
@@ -111,10 +113,18 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
     }
 
     // Step::Confirm — the person has seen the address; now the wallet
-    // gets its name and its passphrase.
-    const keyd::DerivePreset chosen = keyd::DerivePreset(m_model.selected());
-    ImGui::TextUnformatted(preset_name(chosen));
-    kit_caption(m_model.preview(chosen).c_str());
+    // gets its name and its passphrase. A watch import has no secret
+    // and therefore no passphrase: a name is all it needs.
+    const bool watching = m_model.kind() == crypto::SecretKind::EthAddress;
+    if (watching) {
+        ImGui::TextUnformatted(detect_text(tr, m_model.kind()));
+        kit_caption(m_model.watch_address().c_str());
+    } else {
+        const keyd::DerivePreset chosen
+            = keyd::DerivePreset(m_model.selected());
+        ImGui::TextUnformatted(preset_name(chosen));
+        kit_caption(m_model.preview(chosen).c_str());
+    }
     kit_vspace(0.4f);
 
     const float form_avail = ImGui::GetContentRegionAvail().x;
@@ -126,12 +136,16 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
         kit_focus_here();
         m_focus_pending = false;
     }
-    kit_text_field("##name", tr("wallet.name"), m_name.data(), m_name.size());
-    ImGui::SetNextItemWidth(col);
-    secret_field("##pass", m_pass, secret_focus, tr("vault.passphrase"));
-    ImGui::SetNextItemWidth(col);
-    bool submit = secret_field(
-        "##confirm", m_confirm, secret_focus, tr("vault.passphrase.confirm"));
+    bool submit = kit_text_field(
+        "##name", tr("wallet.name"), m_name.data(), m_name.size());
+    if (!watching) {
+        submit = false;
+        ImGui::SetNextItemWidth(col);
+        secret_field("##pass", m_pass, secret_focus, tr("vault.passphrase"));
+        ImGui::SetNextItemWidth(col);
+        submit = secret_field("##confirm", m_confirm, secret_focus,
+            tr("vault.passphrase.confirm"));
+    }
     kit_vspace(0.5f);
 
     ImGui::BeginDisabled(busy);
@@ -146,6 +160,11 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
             strnlen(m_secret_in.data(), m_secret_in.size()));
         if (!store.valid_new_name(name)) {
             ev.err = "wallet.err.name";
+        } else if (watching) {
+            ev.type = Event::Type::Submit;
+            ev.name = name;
+            ev.watch = m_model.watch_address();
+            sodium_memzero(m_secret_in.data(), m_secret_in.size());
         } else if (strnlen(m_pass.data(), m_pass.size()) == 0) {
             ev.err = "vault.msg.empty_pass";
         } else if (std::strncmp(m_pass.data(), m_confirm.data(), m_pass.size())

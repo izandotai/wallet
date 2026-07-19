@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "core/crypto/bip39.hpp"
+#include "core/crypto/eth.hpp"
 #include "ui/wallet/presets.hpp"
 
 namespace izan::ui {
@@ -46,8 +47,14 @@ void ImportModel::update(std::string_view text)
     const crypto::DetectedSecret hit = crypto::detect_secret(text);
     m_kind = hit.kind;
     m_previews = {};
+    m_watch.clear();
     if (!recognized())
         return;
+    if (m_kind == crypto::SecretKind::EthAddress) {
+        // Nothing to derive: the address IS the wallet.
+        m_watch = crypto::eth_checksum_address(trimmed(text));
+        return;
+    }
     m_selected = uint8_t(default_preset(m_kind));
     // Address previews, derived right here: the person sees where their
     // money would live before anything touches disk.
@@ -67,6 +74,7 @@ void ImportModel::reset()
 {
     m_kind = crypto::SecretKind::Unrecognized;
     m_previews = {};
+    m_watch.clear();
     m_selected = 0;
 }
 
@@ -87,7 +95,8 @@ void ImportModel::select(keyd::DerivePreset preset)
 std::optional<vault::Wallet> ImportModel::build(std::string_view text) const
 {
     const crypto::DetectedSecret hit = crypto::detect_secret(text);
-    if (hit.kind == crypto::SecretKind::Unrecognized)
+    if (hit.kind == crypto::SecretKind::Unrecognized
+        || hit.kind == crypto::SecretKind::EthAddress)
         return std::nullopt;
     return wallet_of(hit, text);
 }
