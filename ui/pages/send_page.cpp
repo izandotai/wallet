@@ -181,6 +181,7 @@ void SendPage::reset_to_form()
     m_spl_mint.clear();
     m_spl_amount = 0;
     m_spl_ata_missing = false;
+    m_spl_token2022 = false;
     m_btc_send = false;
     m_btc_amount = 0;
     m_btc_sel = {};
@@ -223,6 +224,7 @@ void SendPage::poll_job()
                 btc_reselect();
             }
             m_spl_ata_missing = m_job->ata_missing;
+            m_spl_token2022 = m_job->token2022;
             m_spl_rent = m_job->token_rent;
             m_stage = Stage::Review;
             m_focus_pass = true;
@@ -565,10 +567,12 @@ void SendPage::begin_sol_review()
             std::from_chars(bal.data(), bal.data() + bal.size(), job->balance);
             if (spl) {
                 // The lamports only pay fee and, if the recipient's
-                // door is closed, the rent to open it.
+                // door is closed, the rent to open it. The mint's own
+                // program decides where that door even is.
+                job->token2022 = sol::mint_is_token2022(rpc, mint);
                 job->token_rent = sol::rent_exempt_minimum(rpc, 165);
-                job->ata_missing
-                    = !sol::account_exists(rpc, crypto::sol_ata(to, mint));
+                job->ata_missing = !sol::account_exists(
+                    rpc, crypto::sol_ata(to, mint, job->token2022));
             } else {
                 const std::string tb = sol::native_balance(rpc, to).to_dec();
                 std::from_chars(
@@ -633,7 +637,8 @@ void SendPage::confirm_sol_send()
         try {
             m_sol_msg = m_spl_send
                 ? sol::encode_spl_transfer(m_from, m_to_checked, m_spl_mint,
-                      m_spl_amount, m_spl_decimals, m_sol_blockhash)
+                      m_spl_amount, m_spl_decimals, m_sol_blockhash,
+                      m_spl_token2022)
                 : sol::encode_transfer_message(
                       m_from, m_to_checked, m_sol_lamports, m_sol_blockhash);
         } catch (const std::exception& e) {

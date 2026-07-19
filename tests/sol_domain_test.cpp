@@ -6,8 +6,10 @@
 
 #include <cstdlib>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <span>
 #include <thread>
 
 #include <sodium.h>
@@ -417,4 +419,34 @@ TEST_CASE("the SPL transfer wears one shape and the table cannot be rerouted")
     auto trailing = msg;
     trailing.push_back(0);
     CHECK_THROWS(izan::sol::parse_spl_transfer(trailing));
+}
+
+TEST_CASE("a Token-2022 transfer keeps its own program and its own doors")
+{
+    const char* alice = "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk";
+    const char* bob = "Hh8QwFUA6MtVu1qAoq12ucvFHNwCcVTV7hpWjeY1Hztb";
+    const char* pump = "3WjLscH2JsXLEFJZRA9z8ti8yRGxWGKbqymPd7UicRth";
+    std::array<uint8_t, 32> hash {};
+    hash.fill(0x44);
+    const auto msg = izan::sol::encode_spl_transfer(
+        alice, bob, pump, 777, 6, hash, true);
+    const auto back = izan::sol::parse_spl_transfer(msg);
+    CHECK(back.token2022);
+    CHECK(back.mint == pump);
+    CHECK(back.amount == 777);
+
+    // The two program families never share an ATA: the same holding
+    // encoded classic parses as classic yet lands elsewhere.
+    const auto classic
+        = izan::sol::encode_spl_transfer(alice, bob, pump, 777, 6, hash);
+    CHECK(!izan::sol::parse_spl_transfer(classic).token2022);
+    CHECK(izan::crypto::sol_ata(alice, pump, true)
+        != izan::crypto::sol_ata(alice, pump));
+
+    // Swapping ONLY the program key leaves the ATAs derived under the
+    // other program — the duel must refuse the half-breed.
+    auto half = msg;
+    const auto classic_keys = std::span(classic).subspan(4 + 192, 32);
+    std::copy(classic_keys.begin(), classic_keys.end(), half.begin() + 4 + 192);
+    CHECK_THROWS(izan::sol::parse_spl_transfer(half));
 }

@@ -244,11 +244,46 @@ std::vector<SplHolding> token_accounts(
     if (!valid_address(owner))
         throw std::invalid_argument(
             "not a solana address: " + std::string(owner));
-    return parse_token_accounts(rpc.call("getTokenAccountsByOwner",
-        "[\"" + std::string(owner)
-            + "\",{\"programId\":"
-              "\"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA\"},"
-              "{\"encoding\":\"jsonParsed\"}]"));
+    auto ask = [&](const char* program) {
+        return parse_token_accounts(rpc.call("getTokenAccountsByOwner",
+            "[\"" + std::string(owner) + "\",{\"programId\":\""
+                + std::string(program)
+                + "\"},{\"encoding\":\"jsonParsed\"}]"));
+    };
+    std::vector<SplHolding> out
+        = ask("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    std::vector<SplHolding> extra
+        = ask("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+    for (SplHolding& h : extra) {
+        h.token2022 = true;
+        out.push_back(std::move(h));
+    }
+    return out;
+}
+
+bool mint_is_token2022(chains::RpcClient& rpc, std::string_view mint)
+{
+    if (!valid_address(mint))
+        throw std::invalid_argument("not a solana address: " + std::string(mint));
+    const std::string res = rpc.call("getAccountInfo",
+        "[\"" + std::string(mint) + "\",{\"encoding\":\"base64\"}]");
+    glz::json_t doc;
+    if (glz::read_json(doc, res) || !doc.is_object())
+        throw std::runtime_error("sol: account info not an object");
+    const auto& root = doc.get_object();
+    const auto value = root.find("value");
+    if (value == root.end() || !value->second.is_object())
+        throw std::runtime_error("sol: no such mint on-chain");
+    const auto& v = value->second.get_object();
+    const auto owner = v.find("owner");
+    if (owner == v.end() || !owner->second.is_string())
+        throw std::runtime_error("sol: mint account without an owner");
+    const std::string& program = owner->second.get_string();
+    if (program == "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+        return true;
+    if (program == "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+        return false;
+    throw std::runtime_error("sol: not a token mint (owner " + program + ")");
 }
 
 std::string known_mint_symbol(std::string_view mint)

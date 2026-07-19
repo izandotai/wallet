@@ -83,6 +83,7 @@ private:
         btc::FeeTiers tiers;
         // the SPL quote: is the recipient door open, and what rent
         bool ata_missing = false;
+        bool token2022 = false;
         uint64_t token_rent = 0;
         // delivery results (hash written before step goes to 2)
         std::string tx_hash;
@@ -157,6 +158,7 @@ private:
     std::string m_spl_mint;
     uint8_t m_spl_decimals = 0;
     bool m_spl_ata_missing = false;
+    bool m_spl_token2022 = false;
     uint64_t m_spl_rent = 0;
     uint64_t m_spl_amount = 0;
     // The Bitcoin leg: the purse quoted, a tier chosen, coins picked.

@@ -81,16 +81,23 @@ uint8_t mint_decimals(chains::RpcClient& rpc, std::string_view mint);
 struct SplHolding {
     std::string account; // the token account (usually the ATA)
     std::string mint;
-    uint64_t amount = 0; // base units
+    uint64_t amount = 0;    // base units
     uint8_t decimals = 0;
+    bool token2022 = false; // held under Token-2022, not the classic program
 };
 
 // Parse a getTokenAccountsByOwner (jsonParsed) result. Zero-balance
 // accounts are kept — an empty ATA is still an account the owner may
 // want to see; callers filter.
 std::vector<SplHolding> parse_token_accounts(std::string_view result_json);
+// Asks BOTH token programs — classic and Token-2022 — and merges; a
+// pump.fun buy lands under Token-2022 and would otherwise be invisible.
 std::vector<SplHolding> token_accounts(
     chains::RpcClient& rpc, std::string_view owner);
+
+// Which program owns this mint — true for Token-2022. Throws when the
+// account doesn't exist or belongs to neither.
+bool mint_is_token2022(chains::RpcClient& rpc, std::string_view mint);
 
 // The display name a well-known mint answers to; empty for strangers.
 // A tiny curated table, not a registry — pricing and symbols for the
