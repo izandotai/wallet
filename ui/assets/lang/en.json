@@ -23,6 +23,7 @@
     "asset.menu.contract": "Copy contract address",
     "asset.menu.explorer": "View on explorer",
     "asset.menu.remove": "Remove token",
+    "asset.remove.warn": "Removed from your list only — the on-chain balance is untouched.",
     "portfolio.addtoken": "+ Add token",
     "addtoken.title": "Add token",
     "addtoken.sub": "The contract reports its own symbol and decimals.",

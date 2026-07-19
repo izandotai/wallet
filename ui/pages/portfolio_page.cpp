@@ -307,8 +307,14 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                            std::pair<uint64_t, std::string>(
                                row.chain_id, row.token))
                         != m_user_tokens.end();
-                if (user_owned && kit_menu_item(tr("asset.menu.remove")))
-                    remove_user_token(row.chain_id, row.token);
+                // Removal asks first — a row menu is one slip away
+                // from the wrong click.
+                if (user_owned && kit_menu_item(tr("asset.menu.remove"))) {
+                    m_remove_chain = row.chain_id;
+                    m_remove_token = row.token;
+                    m_remove_symbol = row.symbol;
+                    m_open_remove = true;
+                }
                 kit_menu_end();
             }
             ImGui::PopID();
@@ -317,6 +323,26 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
     } else if (!busy && m_status.empty()) {
         kit_vspace(1.5f);
         kit_empty_state("💼", tr("portfolio.empty"));
+    }
+
+    // The remove confirmation, armed by the row menu above. Removing
+    // only forgets the list entry; the chain is not consulted and the
+    // holding itself is untouched — the dialog says exactly that.
+    if (m_open_remove) {
+        kit_dialog_open("##remove-token");
+        m_open_remove = false;
+    }
+    if (kit_dialog_begin("##remove-token")) {
+        kit_dialog_header_avatar(m_remove_symbol.c_str(),
+            m_remove_symbol.c_str(), tr("asset.remove.warn"));
+        kit_caption(m_remove_token.c_str());
+        const int choice = kit_dialog_buttons(
+            tr("ui.cancel"), tr("asset.menu.remove"), true, true);
+        if (choice == 2)
+            remove_user_token(m_remove_chain, m_remove_token);
+        if (choice != 0)
+            kit_dialog_close();
+        kit_dialog_end();
     }
 
     // The door to the user's own token list — only when a wallet is

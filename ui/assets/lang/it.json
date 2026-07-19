@@ -23,6 +23,7 @@
     "asset.menu.contract": "Copia l'indirizzo del contratto",
     "asset.menu.explorer": "Apri nell'esploratore",
     "asset.menu.remove": "Rimuovi token",
+    "asset.remove.warn": "Rimosso solo dalla tua lista: il saldo sulla catena resta intatto.",
     "portfolio.addtoken": "+ Aggiungi token",
     "addtoken.title": "Aggiungi token",
     "addtoken.sub": "Il contratto riporta da sé simbolo e decimali.",

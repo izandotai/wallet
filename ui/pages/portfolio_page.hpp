@@ -99,6 +99,12 @@ private:
     std::function<void(uint64_t, const std::string&)> m_on_send;
     std::shared_ptr<Job> m_job;
     std::shared_ptr<ProbeJob> m_probe;
+    // The token the remove confirmation is about; armed by the row
+    // menu, consumed by the dialog.
+    uint64_t m_remove_chain = 0;
+    std::string m_remove_token;
+    std::string m_remove_symbol;
+    bool m_open_remove = false;
     int m_add_chain = 0;          // index into m_chains
     std::array<char, 64> m_add_addr {};
     std::string m_add_status;     // i18n key; empty = quiet

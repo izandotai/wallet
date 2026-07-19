@@ -23,6 +23,7 @@
     "asset.menu.contract": "コントラクトアドレスをコピー",
     "asset.menu.explorer": "エクスプローラーで表示",
     "asset.menu.remove": "トークンを削除",
+    "asset.remove.warn": "リストから削除するだけで、チェーン上の残高には影響しません。",
     "portfolio.addtoken": "+ トークンを追加",
     "addtoken.title": "トークンを追加",
     "addtoken.sub": "シンボルと桁数はコントラクト自身が報告します。",

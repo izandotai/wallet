@@ -23,6 +23,7 @@
     "asset.menu.contract": "复制合约地址",
     "asset.menu.explorer": "在浏览器中查看",
     "asset.menu.remove": "移除代币",
+    "asset.remove.warn": "仅从你的列表中移除，不影响链上资产。",
     "portfolio.addtoken": "+ 添加代币",
     "addtoken.title": "添加代币",
     "addtoken.sub": "代币的符号与精度由合约自己报告。",

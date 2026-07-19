@@ -23,6 +23,7 @@
     "asset.menu.contract": "Copier l'adresse du contrat",
     "asset.menu.explorer": "Voir dans l'explorateur",
     "asset.menu.remove": "Retirer le jeton",
+    "asset.remove.warn": "Retiré de votre liste uniquement — le solde sur la chaîne reste intact.",
     "portfolio.addtoken": "+ Ajouter un jeton",
     "addtoken.title": "Ajouter un jeton",
     "addtoken.sub": "Le contrat annonce lui-même son symbole et ses décimales.",
