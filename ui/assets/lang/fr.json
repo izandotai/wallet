@@ -124,6 +124,5 @@
     "layout.workbench": "Établi",
     "layout.classic": "Colonnes classiques",
     "history.title": "Historique",
-    "history.empty": "Déverrouillez un portefeuille pour voir ses transactions.",
-    "history.full": "Historique complet dans l'explorateur"
+    "history.empty": "Déverrouillez un portefeuille pour voir ses transactions."
 }

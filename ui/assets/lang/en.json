@@ -124,6 +124,5 @@
     "layout.workbench": "Workbench",
     "layout.classic": "Classic columns",
     "history.title": "History",
-    "history.empty": "Unlock a wallet to see its transactions.",
-    "history.full": "View full history on the explorer"
+    "history.empty": "Unlock a wallet to see its transactions."
 }

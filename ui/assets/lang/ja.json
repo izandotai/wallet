@@ -124,6 +124,5 @@
     "layout.workbench": "ワークベンチ",
     "layout.classic": "クラシック3列",
     "history.title": "履歴",
-    "history.empty": "ウォレットを解錠すると取引が表示されます。",
-    "history.full": "エクスプローラーで全履歴を表示"
+    "history.empty": "ウォレットを解錠すると取引が表示されます。"
 }

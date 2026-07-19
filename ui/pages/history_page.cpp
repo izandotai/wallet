@@ -256,24 +256,6 @@ void HistoryPage::draw(const i18n::Catalog& tr)
         kit_empty_state("🧾", tr("history.empty"));
     }
 
-    // The list shows what six free endpoints give; the whole book
-    // lives on the explorer, one click below the last row.
-    if (!m_followed.empty()) {
-        const chains::ChainSpec* home = nullptr;
-        for (const chains::ChainSpec& chain : m_registry.all())
-            if (!chain.explorer.empty() && !chain.testnet) {
-                home = &chain;
-                break;
-            }
-        if (home) {
-            kit_vspace(0.35f);
-            const char* label = tr("history.full");
-            centered_x(ImGui::CalcTextSize(label).x);
-            kit_hyperlink("##history-full", label,
-                (home->explorer + "/address/" + m_followed).c_str());
-        }
-    }
-
     ImGui::End();
 }
 

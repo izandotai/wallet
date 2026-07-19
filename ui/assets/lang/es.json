@@ -124,6 +124,5 @@
     "layout.workbench": "Banco de trabajo",
     "layout.classic": "Columnas clásicas",
     "history.title": "Historial",
-    "history.empty": "Desbloquea una cartera para ver sus transacciones.",
-    "history.full": "Historial completo en el explorador"
+    "history.empty": "Desbloquea una cartera para ver sus transacciones."
 }

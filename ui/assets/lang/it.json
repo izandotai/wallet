@@ -124,6 +124,5 @@
     "layout.workbench": "Banco di lavoro",
     "layout.classic": "Colonne classiche",
     "history.title": "Cronologia",
-    "history.empty": "Sblocca un portafoglio per vedere le sue transazioni.",
-    "history.full": "Cronologia completa nell'esploratore"
+    "history.empty": "Sblocca un portafoglio per vedere le sue transazioni."
 }
