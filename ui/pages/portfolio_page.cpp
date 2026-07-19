@@ -289,6 +289,9 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 if (kit_menu_item(tr("send.title"), nullptr, false, row.ok)
                     && m_on_send)
                     m_on_send(row.chain_id, row.symbol);
+                if (kit_menu_item(tr("swap.title"), nullptr, false, row.ok)
+                    && m_on_swap)
+                    m_on_swap(row.chain_id, row.symbol);
                 if (!row.token.empty()
                     && kit_menu_item(tr("asset.menu.contract")))
                     ImGui::SetClipboardText(row.token.c_str());

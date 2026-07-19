@@ -42,6 +42,12 @@ public:
         m_on_send = std::move(fn);
     }
 
+    // The row menu's "swap" verb; the host wires it to the swap page.
+    void on_swap(std::function<void(uint64_t, const std::string&)> fn)
+    {
+        m_on_swap = std::move(fn);
+    }
+
 private:
     struct Row {
         uint64_t chain_id = 0;
@@ -97,6 +103,7 @@ private:
     double m_fetched_at = 0.0; // frame clock at the last snapshot
     std::vector<Row> m_rows;
     std::function<void(uint64_t, const std::string&)> m_on_send;
+    std::function<void(uint64_t, const std::string&)> m_on_swap;
     std::shared_ptr<Job> m_job;
     std::shared_ptr<ProbeJob> m_probe;
     // The token the remove confirmation is about; armed by the row

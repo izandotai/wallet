@@ -313,6 +313,12 @@ int main(int argc, char** argv)
         swapError = e.what();
     }
 
+    // The row menu's swap verb walks a holding to the exchange desk.
+    if (portfolio && swap)
+        portfolio->on_swap([&swap](uint64_t chain_id, const std::string& sym) {
+            swap->prefill(chain_id, sym);
+        });
+
     // The ledger pane; same containment as its siblings.
     std::optional<ui::HistoryPage> history;
     std::string historyError;

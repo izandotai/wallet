@@ -125,6 +125,21 @@ const chains::ChainSpec& SwapPage::selected_chain() const
     return m_registry.all()[std::size_t(sell().chain)];
 }
 
+void SwapPage::prefill(uint64_t chain_id, const std::string& symbol)
+{
+    for (int i = 0; i < int(m_assets.size()); ++i) {
+        const Asset& a = m_assets[std::size_t(i)];
+        if (a.symbol == symbol
+            && m_registry.all()[std::size_t(a.chain)].chain_id == chain_id) {
+            m_sell_index = i;
+            if (buy().chain != a.chain || m_buy_index == i)
+                m_buy_index = first_partner(i);
+            break;
+        }
+    }
+    m_focus_self = true;
+}
+
 int SwapPage::first_partner(int sell_index) const
 {
     const int chain = m_assets[std::size_t(sell_index)].chain;
@@ -234,6 +249,10 @@ void SwapPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
     }
 
     ImGui::Begin((std::string(tr("swap.title")) + "###swap-page").c_str());
+    if (m_focus_self) {
+        ImGui::SetWindowFocus();
+        m_focus_self = false;
+    }
 
     m_secret_focus = false;
     draw_form(tr);
