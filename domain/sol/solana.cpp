@@ -467,13 +467,7 @@ MintMeta mint_meta(
         if (const auto it = cache.find(mint); it != cache.end())
             return it->second;
     }
-    MintMeta m;
-    if (token2022) {
-        // Token-2022 keeps its card in its own pocket; the node's
-        // jsonParsed decoder reads the TLV for us.
-        m = parse_token2022_meta(rpc.call("getAccountInfo",
-            "[\"" + std::string(mint) + "\",{\"encoding\":\"jsonParsed\"}]"));
-    } else {
+    auto from_metaplex = [&]() {
         const std::string pda = crypto::sol_metadata_pda(mint);
         const std::string res = rpc.call(
             "getAccountInfo", "[\"" + pda + "\",{\"encoding\":\"base64\"}]");
@@ -499,7 +493,22 @@ MintMeta mint_meta(
             != 0)
             throw std::runtime_error("sol: metadata not base64");
         bytes.resize(len);
-        m = parse_metaplex_meta(bytes);
+        return parse_metaplex_meta(bytes);
+    };
+    MintMeta m;
+    if (token2022) {
+        // Token-2022 usually keeps its card in its own pocket; when
+        // the mint carries no tokenMetadata TLV (a metadataPointer
+        // aimed elsewhere), try the Metaplex drawer before giving up.
+        try {
+            m = parse_token2022_meta(rpc.call("getAccountInfo",
+                "[\"" + std::string(mint)
+                    + "\",{\"encoding\":\"jsonParsed\"}]"));
+        } catch (const std::exception&) {
+            m = from_metaplex();
+        }
+    } else {
+        m = from_metaplex();
     }
     m.name = sanitize_token_text(m.name, 48);
     m.symbol = sanitize_token_text(m.symbol, 16);
