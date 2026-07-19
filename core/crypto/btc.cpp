@@ -75,6 +75,25 @@ std::string btc_p2sh_p2wpkh_address(std::span<const uint8_t, 33> pubkey)
     return base58check_address(0x05, hash160(redeem));
 }
 
+std::string btc_p2wsh_address(
+    std::span<const uint8_t> witness_script, const char* hrp)
+{
+    std::array<uint8_t, 32> program;
+    sha256_Raw(witness_script.data(), witness_script.size(), program.data());
+    char addr[93];
+    if (segwit_addr_encode(addr, hrp, 0, program.data(), program.size()) != 1)
+        return {};
+    return addr;
+}
+
+std::string btc_p2sh_p2wsh_address(std::span<const uint8_t> witness_script)
+{
+    // The redeem script is the P2WSH output: OP_0 PUSH32 <sha256(ws)>.
+    std::array<uint8_t, 34> redeem { 0x00, 0x20 };
+    sha256_Raw(witness_script.data(), witness_script.size(), redeem.data() + 2);
+    return base58check_address(0x05, hash160(redeem));
+}
+
 std::string btc_p2tr_address(
     std::span<const uint8_t, 33> pubkey, const char* hrp)
 {

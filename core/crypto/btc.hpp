@@ -32,6 +32,15 @@ std::string btc_p2tr_address(
 // guarded memory; the trailing 0x01 compressed marker is accepted and
 // dropped — the key is the key. Anything else (bad checksum, wrong
 // version, wrong length, zero scalar) is nullopt, never a guess.
+// Script-hash addresses: not derived from a key path but from a
+// witnessScript (multisig policies, arbitrary spend conditions). The
+// script comes from a policy layer above; these only dress its hash.
+// P2WSH — witness v0, 32-byte program = sha256(script) → "bc1q…" (62).
+std::string btc_p2wsh_address(
+    std::span<const uint8_t> witness_script, const char* hrp = "bc");
+// P2SH-P2WSH — the same program nested for legacy senders → "3…".
+std::string btc_p2sh_p2wsh_address(std::span<const uint8_t> witness_script);
+
 std::optional<secure::SecureBytes> wif_to_key(std::string_view wif);
 
 // True iff the text is a Bitcoin mainnet address this wallet can
