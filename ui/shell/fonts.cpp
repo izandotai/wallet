@@ -1,15 +1,64 @@
 #include "ui/shell/fonts.hpp"
 
 #include <imgui_freetype.h>
+#include <imgui_internal.h> // ImFontLoader: the invisibles source
 
 #include <array>
 #include <cstdio>
+#include <cstdlib>
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 namespace izan::ui {
+
+namespace {
+
+    // U+FE0E/U+FE0F (variation selectors) and U+200D (the joiner) are
+    // formatting marks, not glyphs — but any real font that answers
+    // for them bills a full advance, and "⛩️" walks away with a
+    // phantom shoulder as wide as the shrine itself. This source
+    // claims them ahead of every face and answers with nothing, zero
+    // wide, at any size.
+    bool invisible_codepoint(ImWchar cp)
+    {
+        return cp == 0x200D || cp == 0xFE0E || cp == 0xFE0F;
+    }
+
+    bool invisibles_contains(ImFontAtlas*, ImFontConfig*, ImWchar cp)
+    {
+        return invisible_codepoint(cp);
+    }
+
+    bool invisibles_load(ImFontAtlas*, ImFontConfig*, ImFontBaked*, void*,
+        ImWchar cp, ImFontGlyph* out_glyph, float* out_advance_x)
+    {
+        if (!invisible_codepoint(cp))
+            return false;
+        if (out_advance_x != nullptr) {
+            *out_advance_x = 0.0f;
+            return true;
+        }
+        *out_glyph = ImFontGlyph();
+        out_glyph->Codepoint = cp;
+        out_glyph->AdvanceX = 0.0f;
+        return true;
+    }
+
+    const ImFontLoader* invisibles_loader()
+    {
+        static const ImFontLoader loader = [] {
+            ImFontLoader l;
+            l.Name = "izan-invisibles";
+            l.FontSrcContainsGlyph = invisibles_contains;
+            l.FontBakedLoadGlyph = invisibles_load;
+            return l;
+        }();
+        return &loader;
+    }
+
+}
 
 std::filesystem::path executable_dir()
 {
@@ -97,13 +146,26 @@ void load_default_font(ImGuiIO& io)
         if (font == nullptr)
             continue;
         io.FontDefault = font;
-        if (std::filesystem::exists(kEmojiFontPath)) {
+        // The invisibles ride between the primary face and the emoji
+        // font: first to answer for the formatting marks, so no real
+        // face ever gets to bill them.
+        ImFontConfig invis_config;
+        invis_config.MergeMode = true;
+        invis_config.FontLoader = invisibles_loader();
+        io.Fonts->AddFont(&invis_config);
+        // IZAN_EMOJI_FONT swaps the emoji face for experiments (a
+        // candidate file is auditioned before it earns a place in the
+        // waterfall); unset, the system face stands.
+        const char* emoji_env = std::getenv("IZAN_EMOJI_FONT");
+        const std::filesystem::path emoji_path
+            = emoji_env && *emoji_env ? emoji_env : kEmojiFontPath;
+        if (std::filesystem::exists(emoji_path)) {
             ImFontConfig emoji_config;
             emoji_config.MergeMode = true;
             emoji_config.PixelSnapH = false;
             emoji_config.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LoadColor;
-            io.Fonts->AddFontFromFileTTF(
-                kEmojiFontPath, kDefaultFontSize, &emoji_config, emoji_ranges);
+            io.Fonts->AddFontFromFileTTF(emoji_path.string().c_str(),
+                kDefaultFontSize, &emoji_config, emoji_ranges);
         }
         // Third priority: the primary face again without the exclude
         // table, catching every symbol the emoji font has no glyph

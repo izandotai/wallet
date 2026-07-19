@@ -14,6 +14,7 @@
 #include "ui/widgets/kit.hpp"
 
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -102,6 +103,28 @@ void draw_kit_gallery()
     static int chain = 0;
     bool secret_focus = false;
     const float em = ImGui::GetFontSize();
+
+    // Glyph forensics: IZAN_GLYPH_PROBE=1 writes advance widths of the
+    // suspects next to the exe — the ruler that settles phantom
+    // shoulders like a variation selector billed full fare.
+    if (std::getenv("IZAN_GLYPH_PROBE")) {
+        static bool probed = false;
+        if (!probed) {
+            probed = true;
+            if (std::FILE* f = std::fopen("glyph_probe.txt", "w")) {
+                auto put = [&](const char* name, const char* s) {
+                    std::fprintf(
+                        f, "%-12s %.2f\n", name, ImGui::CalcTextSize(s).x);
+                };
+                put("torii+vs16", "⛩️");
+                put("torii", "⛩");
+                put("vs16", "\xEF\xB8\x8F");
+                put("briefcase", "💼");
+                put("latin-A", "A");
+                std::fclose(f);
+            }
+        }
+    }
 
     // Screenshot rig: IZAN_GALLERY_SCROLL=<px> parks the page at a
     // given scroll offset so any section can be captured unattended.
