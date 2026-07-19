@@ -60,3 +60,22 @@ TEST_CASE("live: solana answers a balance for the USDC mint")
     CHECK_FALSE(lamports.is_zero());
     MESSAGE("USDC mint lamports " << lamports.to_dec());
 }
+
+TEST_CASE("a signature feed keeps its moments and its failures")
+{
+    const char* json = R"([
+      {"signature":"5sigAlive","slot":1,"blockTime":1700000500,"err":null},
+      {"signature":"4sigDead","slot":2,"blockTime":null,
+       "err":{"InstructionError":[0,"Custom"]}}
+    ])";
+    const auto sigs = izan::sol::parse_signatures(json);
+    REQUIRE(sigs.size() == 2);
+    CHECK(sigs[0].signature == "5sigAlive");
+    CHECK(sigs[0].time == 1700000500);
+    CHECK(!sigs[0].failed);
+    CHECK(sigs[1].signature == "4sigDead");
+    CHECK(sigs[1].time == 0); // the node lost the moment, not the row
+    CHECK(sigs[1].failed);
+
+    CHECK_THROWS(izan::sol::parse_signatures("{\"value\":1}"));
+}

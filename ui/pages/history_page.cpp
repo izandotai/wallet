@@ -12,6 +12,9 @@
 
 #include "core/units/decimal.hpp"
 #include "domain/assets/history.hpp"
+#include "domain/btc/esplora.hpp"
+#include "domain/chains/rpc_client.hpp"
+#include "domain/sol/solana.hpp"
 #include "platform/time/local_clock.hpp"
 #include "ui/widgets/kit.hpp"
 
@@ -69,9 +72,14 @@ void HistoryPage::refresh(const std::string& address)
     if (address.empty() || m_job)
         return;
     m_status.clear();
+    const keyd::ChainFamily family = m_family;
+    const char* fam_key = family == keyd::ChainFamily::Sol ? "sol"
+        : family == keyd::ChainFamily::Btc                 ? "btc"
+                                                           : "evm";
     std::vector<chains::ChainSpec> flying;
     for (const chains::ChainSpec& chain : m_registry.all())
-        if (!chain.history.empty())
+        if (chain.family == fam_key
+            && (family != keyd::ChainFamily::Eth || !chain.history.empty()))
             flying.push_back(chain);
     if (flying.empty())
         return;
@@ -81,44 +89,88 @@ void HistoryPage::refresh(const std::string& address)
     job->pending.store(job->spawned);
     m_job = job;
     for (const chains::ChainSpec& chain : flying) {
-        std::thread([job, address, chain]() {
+        std::thread([job, address, chain, family]() {
             try {
-                assets::Ledger ledger = assets::fetch_ledger(chain, address);
                 std::vector<Row> local;
-                std::set<std::string> token_hashes;
-                // Token transfers land first so their hashes can
-                // silence the empty native shells of the same
-                // transactions; hashes never cross chains, so the
-                // set stays chain-local.
-                auto add = [&](const assets::TxRecord& rec, bool token) {
-                    Row row;
-                    row.hash = rec.hash;
-                    row.counterparty = rec.counterparty;
-                    row.incoming = rec.incoming;
-                    row.failed = rec.failed;
-                    row.time = rec.time;
-                    row.note = chain.name + " · " + moment_of(rec.time);
-                    row.when_hint = local_moment_of(rec.time);
-                    row.amount = (rec.incoming ? "+" : "−")
-                        + units::format_units_display(rec.value,
-                            token ? rec.token_decimals : chain.decimals)
-                        + " " + (token ? rec.token_symbol : chain.symbol);
-                    if (!chain.explorer.empty())
-                        row.link = chain.explorer + "/tx/" + row.hash;
-                    local.push_back(std::move(row));
-                };
-                for (const assets::TxRecord& rec : ledger.tokens) {
-                    token_hashes.insert(rec.hash);
-                    add(rec, true);
-                }
-                for (const assets::TxRecord& rec : ledger.native) {
-                    // A token send's outer transaction is a zero-value
-                    // call on the contract; the transfer row already
-                    // tells the story.
-                    if (rec.value.to_dec() == "0"
-                        && token_hashes.contains(rec.hash))
-                        continue;
-                    add(rec, false);
+                if (family == keyd::ChainFamily::Btc) {
+                    // One esplora page, already net of our own change
+                    // outputs; a whole-coin ledger has no token rows.
+                    for (const btc::BtcTx& tx :
+                        btc::fetch_txs(chain, address)) {
+                        Row row;
+                        row.hash = tx.txid;
+                        row.counterparty = tx.counterparty;
+                        row.incoming = tx.incoming;
+                        row.time = tx.time;
+                        row.note = chain.name + " · " + moment_of(tx.time);
+                        row.when_hint = local_moment_of(tx.time);
+                        row.amount = (tx.incoming ? "+" : "−")
+                            + units::format_units_display(
+                                tx.amount, chain.decimals)
+                            + " " + chain.symbol;
+                        if (!chain.explorer.empty())
+                            row.link = chain.explorer + "/tx/" + row.hash;
+                        local.push_back(std::move(row));
+                    }
+                } else if (family == keyd::ChainFamily::Sol) {
+                    // Solana's cheap index stops at the signature;
+                    // amounts would cost a full fetch per row, so the
+                    // feed shows involvement and lets the explorer
+                    // tell the rest.
+                    chains::RpcClient rpc(chain);
+                    for (const sol::SolSig& sig :
+                        sol::recent_signatures(rpc, address)) {
+                        Row row;
+                        row.hash = sig.signature;
+                        row.counterparty = sig.signature;
+                        row.failed = sig.failed;
+                        row.time = sig.time;
+                        row.note = sig.time
+                            ? chain.name + " · " + moment_of(sig.time)
+                            : chain.name;
+                        row.when_hint = local_moment_of(sig.time);
+                        if (!chain.explorer.empty())
+                            row.link = chain.explorer + "/tx/" + row.hash;
+                        local.push_back(std::move(row));
+                    }
+                } else {
+                    assets::Ledger ledger
+                        = assets::fetch_ledger(chain, address);
+                    std::set<std::string> token_hashes;
+                    // Token transfers land first so their hashes can
+                    // silence the empty native shells of the same
+                    // transactions; hashes never cross chains, so the
+                    // set stays chain-local.
+                    auto add = [&](const assets::TxRecord& rec, bool token) {
+                        Row row;
+                        row.hash = rec.hash;
+                        row.counterparty = rec.counterparty;
+                        row.incoming = rec.incoming;
+                        row.failed = rec.failed;
+                        row.time = rec.time;
+                        row.note = chain.name + " · " + moment_of(rec.time);
+                        row.when_hint = local_moment_of(rec.time);
+                        row.amount = (rec.incoming ? "+" : "−")
+                            + units::format_units_display(rec.value,
+                                token ? rec.token_decimals : chain.decimals)
+                            + " " + (token ? rec.token_symbol : chain.symbol);
+                        if (!chain.explorer.empty())
+                            row.link = chain.explorer + "/tx/" + row.hash;
+                        local.push_back(std::move(row));
+                    };
+                    for (const assets::TxRecord& rec : ledger.tokens) {
+                        token_hashes.insert(rec.hash);
+                        add(rec, true);
+                    }
+                    for (const assets::TxRecord& rec : ledger.native) {
+                        // A token send's outer transaction is a zero-value
+                        // call on the contract; the transfer row already
+                        // tells the story.
+                        if (rec.value.to_dec() == "0"
+                            && token_hashes.contains(rec.hash))
+                            continue;
+                        add(rec, false);
+                    }
                 }
                 {
                     std::lock_guard lock(job->mu);
@@ -187,12 +239,12 @@ void HistoryPage::draw(const i18n::Catalog& tr)
     const float avail = ImGui::GetContentRegionAvail().x;
     const bool busy = m_job != nullptr;
 
-    // The six-chain blockscout ledger is EVM-only; other families
-    // show the empty state until their own ledgers arrive.
-    const std::string mine = m_vault.active_family() == keyd::ChainFamily::Eth
-        ? m_vault.followed_address()
-        : std::string();
-    if (mine != m_followed) {
+    // Every family has a ledger now: blockscout for EVM, esplora for
+    // Bitcoin, the signature feed for Solana.
+    const std::string mine = m_vault.followed_address();
+    const keyd::ChainFamily fam = m_vault.active_family();
+    if (mine != m_followed || fam != m_family) {
+        m_family = fam;
         m_followed = mine;
         m_rows.clear();
         m_status.clear();

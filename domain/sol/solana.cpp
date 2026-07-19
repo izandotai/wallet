@@ -44,4 +44,41 @@ units::U256 native_balance(chains::RpcClient& rpc, std::string_view address)
         rpc.call("getBalance", "[\"" + std::string(address) + "\"]"));
 }
 
+std::vector<SolSig> parse_signatures(std::string_view result_json)
+{
+    glz::json_t doc;
+    if (glz::read_json(doc, result_json) || !doc.is_array())
+        throw std::runtime_error(
+            "sol: getSignaturesForAddress result not an array");
+    std::vector<SolSig> out;
+    for (const glz::json_t& entry : doc.get_array()) {
+        if (!entry.is_object())
+            continue;
+        const auto& obj = entry.get_object();
+        const auto sig = obj.find("signature");
+        if (sig == obj.end() || !sig->second.is_string())
+            continue;
+        SolSig rec;
+        rec.signature = sig->second.get_string();
+        const auto when = obj.find("blockTime");
+        if (when != obj.end() && when->second.is_number()
+            && when->second.get_number() > 0)
+            rec.time = uint64_t(when->second.get_number());
+        const auto err = obj.find("err");
+        rec.failed = err != obj.end() && !err->second.is_null();
+        out.push_back(std::move(rec));
+    }
+    return out;
+}
+
+std::vector<SolSig> recent_signatures(
+    chains::RpcClient& rpc, std::string_view address)
+{
+    if (!valid_address(address))
+        throw std::invalid_argument(
+            "not a solana address: " + std::string(address));
+    return parse_signatures(rpc.call("getSignaturesForAddress",
+        "[\"" + std::string(address) + "\",{\"limit\":25}]"));
+}
+
 }

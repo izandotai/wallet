@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cstdint>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include "core/units/u256.hpp"
 #include "domain/chains/rpc_client.hpp"
@@ -20,5 +23,21 @@ units::U256 parse_balance_result(std::string_view result_json);
 // address is validated before anything touches the wire; malformed
 // input throws std::invalid_argument.
 units::U256 native_balance(chains::RpcClient& rpc, std::string_view address);
+
+// One line of an account's activity feed. Solana's cheap index stops
+// at the signature — knowing what moved would cost a full-transaction
+// fetch per row — so the feed shows involvement, not amounts.
+struct SolSig {
+    std::string signature;
+    uint64_t time = 0; // blockTime, unix seconds; 0 when the node lost it
+    bool failed = false;
+};
+
+// The "result" array of getSignaturesForAddress, offline.
+std::vector<SolSig> parse_signatures(std::string_view result_json);
+
+// The 25 most recent signatures touching the address, newest first.
+std::vector<SolSig> recent_signatures(
+    chains::RpcClient& rpc, std::string_view address);
 
 }

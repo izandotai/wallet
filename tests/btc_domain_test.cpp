@@ -61,3 +61,45 @@ TEST_CASE("live: the genesis address still holds its tribute")
     CHECK(sats.to_dec().size() >= 10);
     MESSAGE("genesis sats " << sats.to_dec());
 }
+
+TEST_CASE("an esplora tx page reads as our side of the ledger")
+{
+    // One incoming payment, one outgoing with change, one unconfirmed
+    // straggler, one self-shuffle — only the first two are stories.
+    const char* self = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
+    const std::string json = std::string(R"([
+      {"txid":"aa11","status":{"confirmed":true,"block_time":1700000100},
+       "vin":[{"prevout":{"scriptpubkey_address":"1SenderFace","value":5000}}],
+       "vout":[{"scriptpubkey_address":")")
+        + self + R"(","value":3000},
+               {"scriptpubkey_address":"1SenderFace","value":1900}]},
+      {"txid":"bb22","status":{"confirmed":true,"block_time":1700000200},
+       "vin":[{"prevout":{"scriptpubkey_address":")"
+        + self + R"(","value":10000}}],
+       "vout":[{"scriptpubkey_address":"3DestFace","value":7000},
+               {"scriptpubkey_address":")"
+        + self + R"(","value":2500}]},
+      {"txid":"cc33","status":{"confirmed":false},
+       "vin":[],"vout":[{"scriptpubkey_address":")"
+        + self + R"(","value":1}]},
+      {"txid":"dd44","status":{"confirmed":true,"block_time":1700000300},
+       "vin":[{"prevout":{"scriptpubkey_address":")"
+        + self + R"(","value":800}}],
+       "vout":[{"scriptpubkey_address":")"
+        + self + R"(","value":800}]}
+    ])";
+    const auto txs = izan::btc::parse_txs(json, self);
+    REQUIRE(txs.size() == 2);
+    CHECK(txs[0].txid == "aa11");
+    CHECK(txs[0].incoming);
+    CHECK(txs[0].amount.to_dec() == "3000");
+    CHECK(txs[0].counterparty == "1SenderFace");
+    CHECK(txs[0].time == 1700000100);
+    CHECK(txs[1].txid == "bb22");
+    CHECK(!txs[1].incoming);
+    // 10000 out, 2500 came home: the world got 7500, fee included.
+    CHECK(txs[1].amount.to_dec() == "7500");
+    CHECK(txs[1].counterparty == "3DestFace");
+
+    CHECK_THROWS(izan::btc::parse_txs("{}", self));
+}

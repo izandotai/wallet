@@ -66,6 +66,7 @@ private:
 
     chains::ChainRegistry m_registry;
     VaultPage& m_vault;
+    keyd::ChainFamily m_family = keyd::ChainFamily::Eth;
     std::string m_followed;
     double m_fetched_at = 0.0;
     std::vector<Row> m_rows;
