@@ -39,8 +39,10 @@ void KeydSession::teardown()
 void KeydSession::mark_unlocked(bool unlocked)
 {
     m_unlocked = unlocked;
-    if (!unlocked)
+    if (!unlocked) {
         m_addresses.clear();
+        m_family_book.clear();
+    }
 }
 
 uint32_t KeydSession::refresh_addresses(uint32_t count, uint8_t preset)
@@ -71,6 +73,30 @@ void KeydSession::push_address(uint32_t index, uint8_t preset)
         return;
     auto addr = m_client->address(index, preset);
     m_addresses.push_back(addr ? *addr : m_client->last_error());
+}
+
+uint32_t KeydSession::refresh_family(
+    const std::string& family, uint32_t count, uint8_t preset)
+{
+    auto& book = m_family_book[family];
+    book.clear();
+    if (!m_client)
+        return 0;
+    for (uint32_t i = 0; i < count; ++i) {
+        auto addr = m_client->address(i, preset);
+        book.push_back(addr ? *addr : m_client->last_error());
+        if (i == 0 && m_client->wallet_kind() != keyd::RevealKind::SeedEntropy)
+            return 1; // a key wallet has exactly the one address
+    }
+    return count;
+}
+
+const std::vector<std::string>& KeydSession::family_addresses(
+    const std::string& family) const
+{
+    static const std::vector<std::string> kEmpty;
+    const auto it = m_family_book.find(family);
+    return it == m_family_book.end() ? kEmpty : it->second;
 }
 
 }

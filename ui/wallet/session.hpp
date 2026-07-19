@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -56,10 +57,22 @@ public:
         return m_addresses;
     }
 
+    // The all-chain address book: the same account line under another
+    // family's preset. Books live beside the birth-family one and are
+    // wiped together on lock — an HD seed's other identities, fetched
+    // when a page first looks.
+    uint32_t refresh_family(
+        const std::string& family, uint32_t count, uint8_t preset);
+
+    // Empty until refresh_family has run for that family.
+    const std::vector<std::string>& family_addresses(
+        const std::string& family) const;
+
 private:
     std::string m_exe_path;
     std::optional<keyd::KeydClient> m_client;
     std::vector<std::string> m_addresses;
+    std::map<std::string, std::vector<std::string>> m_family_book;
     bool m_unlocked = false;
 };
 
