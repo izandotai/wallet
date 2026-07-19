@@ -67,32 +67,34 @@ HistoryPage::HistoryPage(
 {
 }
 
-void HistoryPage::refresh(const std::string& address)
+void HistoryPage::refresh(const std::array<std::string, 3>& addrs)
 {
-    if (address.empty() || m_job)
+    if ((addrs[0].empty() && addrs[1].empty() && addrs[2].empty()) || m_job)
         return;
     m_status.clear();
-    const keyd::ChainFamily family = m_family;
-    const char* fam_key = family == keyd::ChainFamily::Sol ? "sol"
-        : family == keyd::ChainFamily::Btc                 ? "btc"
-                                                           : "evm";
-    std::vector<chains::ChainSpec> flying;
-    for (const chains::ChainSpec& chain : m_registry.all())
-        if (chain.family == fam_key
-            && (family != keyd::ChainFamily::Eth || !chain.history.empty()))
-            flying.push_back(chain);
+    // One flight per chain whose family has a face here: an all-chain
+    // wallet merges every family's entries into the one ledger.
+    std::vector<std::pair<chains::ChainSpec, std::string>> flying;
+    for (const chains::ChainSpec& chain : m_registry.all()) {
+        const std::string& addr = chain.family == "btc" ? addrs[1]
+            : chain.family == "sol"                     ? addrs[2]
+                                                        : addrs[0];
+        if (addr.empty() || (chain.is_evm() && chain.history.empty()))
+            continue;
+        flying.emplace_back(chain, addr);
+    }
     if (flying.empty())
         return;
     auto job = std::make_shared<Job>();
-    job->address = address;
+    job->address = addrs[0] + "|" + addrs[1] + "|" + addrs[2];
     job->spawned = int(flying.size());
     job->pending.store(job->spawned);
     m_job = job;
-    for (const chains::ChainSpec& chain : flying) {
-        std::thread([job, address, chain, family]() {
+    for (const auto& [chain, address] : flying) {
+        std::thread([job, address, chain]() {
             try {
                 std::vector<Row> local;
-                if (family == keyd::ChainFamily::Btc) {
+                if (chain.family == "btc") {
                     // One esplora page, already net of our own change
                     // outputs; a whole-coin ledger has no token rows.
                     for (const btc::BtcTx& tx :
@@ -112,7 +114,7 @@ void HistoryPage::refresh(const std::string& address)
                             row.link = chain.explorer + "/tx/" + row.hash;
                         local.push_back(std::move(row));
                     }
-                } else if (family == keyd::ChainFamily::Sol) {
+                } else if (chain.family == "sol") {
                     // Solana's cheap index stops at the signature;
                     // amounts would cost a full fetch per row, so the
                     // feed shows involvement and lets the explorer
@@ -229,7 +231,7 @@ void HistoryPage::draw(const i18n::Catalog& tr)
             // The account switched while this ledger flew; chase the
             // address now on screen.
             if (!current && !m_followed.empty())
-                refresh(m_followed);
+                refresh(m_addrs);
         }
     }
 
@@ -240,12 +242,17 @@ void HistoryPage::draw(const i18n::Catalog& tr)
     const bool busy = m_job != nullptr;
 
     // Every family has a ledger now: blockscout for EVM, esplora for
-    // Bitcoin, the signature feed for Solana.
-    const std::string mine = m_vault.followed_address();
-    const keyd::ChainFamily fam = m_vault.active_family();
-    if (mine != m_followed || fam != m_family) {
-        m_family = fam;
-        m_followed = mine;
+    // Bitcoin, the signature feed for Solana — an all-chain wallet
+    // reads them merged, newest first.
+    const std::array<std::string, 3> mine = { m_vault.family_address("evm"),
+        m_vault.family_address("btc"), m_vault.family_address("sol") };
+    const std::string key
+        = mine[0].empty() && mine[1].empty() && mine[2].empty()
+        ? std::string()
+        : mine[0] + "|" + mine[1] + "|" + mine[2];
+    if (key != m_followed) {
+        m_followed = key;
+        m_addrs = mine;
         m_rows.clear();
         m_status.clear();
         m_fetched_at = 0.0;
@@ -265,7 +272,7 @@ void HistoryPage::draw(const i18n::Catalog& tr)
     } else if (!m_followed.empty()) {
         centered_x(kit_button_width(tr("portfolio.refresh")));
         if (kit_link_button(tr("portfolio.refresh")))
-            refresh(m_followed);
+            refresh(m_addrs);
         if (m_fetched_at > 0.0) {
             const int age = int(ImGui::GetTime() - m_fetched_at);
             char ago[32];

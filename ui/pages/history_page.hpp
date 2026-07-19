@@ -62,12 +62,15 @@ private:
         int failed = 0;
     };
 
-    void refresh(const std::string& address);
+    // All-chain refresh: evm/btc/sol faces of the identity, empty =
+    // that family has nothing to ask. One flight per chain that has
+    // an address, whatever the family.
+    void refresh(const std::array<std::string, 3>& addrs);
 
     chains::ChainRegistry m_registry;
     VaultPage& m_vault;
-    keyd::ChainFamily m_family = keyd::ChainFamily::Eth;
-    std::string m_followed;
+    std::array<std::string, 3> m_addrs {};
+    std::string m_followed; // faces joined — the follow key
     double m_fetched_at = 0.0;
     std::vector<Row> m_rows;
     std::shared_ptr<Job> m_job;
