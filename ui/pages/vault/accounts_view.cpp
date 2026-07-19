@@ -50,6 +50,12 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     // The balance is garnish and the first thing to go when the pane
     // tightens; the address and its QR never leave.
     const bool show_balance = row_avail >= em * 15.0f;
+    // The note well sets the row's height; every framed neighbor
+    // (selection mark, QR pill) sizes off the ambient frame height,
+    // so the whole row breathes at the well's rhythm and stays on one
+    // axis.
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+        ImVec2(em * 0.55f, em * design().field_pad_y));
     for (uint32_t i = 0; i < addresses.size(); ++i) {
         ImGui::PushID(int(i));
         if (i > 0)
@@ -113,6 +119,7 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
         }
         ImGui::PopID();
     }
+    ImGui::PopStyleVar();
     if (hd) {
         kit_hairline();
         if (kit_link_button(tr("wallet.account.add")))
