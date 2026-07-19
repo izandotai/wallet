@@ -292,13 +292,19 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 if (!row.token.empty()
                     && kit_menu_item(tr("asset.menu.contract")))
                     ImGui::SetClipboardText(row.token.c_str());
+                // Two explorer doors, named for what they open: the
+                // token's own page (global view of the contract) and
+                // my address's page (my balances and transfers). One
+                // vague "view on explorer" conflated them.
                 const auto ex = m_explorers.find(row.chain_id);
-                if (ex != m_explorers.end() && !ex->second.empty()
-                    && kit_menu_item(tr("asset.menu.explorer")))
-                    kit_open_url((ex->second
-                        + (row.token.empty() ? "/address/" + m_followed
-                                             : "/token/" + row.token))
-                            .c_str());
+                const bool has_ex
+                    = ex != m_explorers.end() && !ex->second.empty();
+                if (has_ex && !row.token.empty()
+                    && kit_menu_item(tr("asset.menu.token.explorer")))
+                    kit_open_url((ex->second + "/token/" + row.token).c_str());
+                if (has_ex && kit_menu_item(tr("asset.menu.addr.explorer")))
+                    kit_open_url(
+                        (ex->second + "/address/" + m_followed).c_str());
                 // Removal is offered only for the user's own rows —
                 // the shipped set is config under digest, not a menu
                 // casualty.
