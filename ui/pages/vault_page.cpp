@@ -113,6 +113,12 @@ void VaultPage::poll_job()
             // a person needs from an unlocked wallet.
             const uint32_t actual
                 = m_session.refresh_addresses(m_meta.count, m_meta.preset);
+            // The all-chain books: an HD seed's other identities,
+            // derived locally by keyd in the same breath.
+            for (const std::string& fam : wallet_families(m_meta))
+                if (fam != family_key(active_family()))
+                    m_session.refresh_family(
+                        fam, actual, uint8_t(family_preset(m_meta, fam)));
             bool dirty = false;
             if (actual != m_meta.count) {
                 m_meta.count = actual;
@@ -590,6 +596,10 @@ void VaultPage::handle_accounts(AccountsView::Event ev)
         m_store.write_meta(m_active, m_meta);
         m_store.rescan(); // the card face shows the count
         m_session.push_address(m_meta.count - 1, m_meta.preset);
+        for (const std::string& fam : wallet_families(m_meta))
+            if (fam != family_key(active_family()))
+                m_session.refresh_family(
+                    fam, m_meta.count, uint8_t(family_preset(m_meta, fam)));
         // Only the newborn row needs a number; the rest are current.
         fetch_balances(int(m_meta.count) - 1);
         break;

@@ -18,6 +18,7 @@
 #include "ui/pages/vault/list_view.hpp"
 #include "ui/pages/vault/secret_view.hpp"
 #include "ui/pages/vault/unlock_view.hpp"
+#include "ui/wallet/presets.hpp"
 #include "ui/wallet/session.hpp"
 #include "ui/wallet/store.hpp"
 
@@ -102,6 +103,26 @@ public:
     uint8_t active_preset() const
     {
         return m_meta.preset;
+    }
+
+    // The active account's address on a given family ("evm"/"btc"/
+    // "sol") — the all-chain face of one identity. Empty when locked,
+    // or when the wallet has no self on that family (key and watch
+    // wallets stay on their own).
+    std::string family_address(std::string_view family) const
+    {
+        if (m_mode == Mode::Watch)
+            return family == m_meta.watch_family ? active_address()
+                                                 : std::string();
+        if (m_mode != Mode::Unlocked)
+            return {};
+        if (family
+            == family_key(
+                keyd::preset_family(keyd::DerivePreset(m_meta.preset))))
+            return active_address();
+        const auto& book = m_session.family_addresses(std::string(family));
+        return m_meta.active < book.size() ? book[m_meta.active]
+                                           : std::string();
     }
 
     // The chain family the active addresses live on — the read-only
