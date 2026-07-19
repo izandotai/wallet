@@ -335,7 +335,12 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
     if (kit_dialog_begin("##remove-token")) {
         kit_dialog_header_avatar(m_remove_symbol.c_str(),
             m_remove_symbol.c_str(), tr("asset.remove.warn"));
-        kit_caption(m_remove_token.c_str());
+        // The centered copy-text elides to the dialog's width; a bare
+        // 42-char caption would stretch the window past the button row
+        // and shove the whole card off its center axis.
+        kit_copy_text_centered("##rm-addr", m_remove_token.c_str(),
+            tr("ui.copy"), tr("ui.copied"));
+        kit_vspace(0.2f);
         const int choice = kit_dialog_buttons(
             tr("ui.cancel"), tr("asset.menu.remove"), true, true);
         if (choice == 2)
