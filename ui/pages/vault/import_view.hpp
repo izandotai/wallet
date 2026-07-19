@@ -27,7 +27,8 @@ public:
         std::string name;
         secure::SecureBytes pass;
         std::optional<vault::Wallet> wallet;
-        std::string watch; // non-empty: a watch-only import, no vault
+        std::string watch;        // non-empty: a watch-only import, no vault
+        std::string watch_family; // its chain family ("evm"/"btc"/"sol")
         uint8_t preset = 0;
     };
 

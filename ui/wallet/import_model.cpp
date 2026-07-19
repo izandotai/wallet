@@ -50,9 +50,13 @@ void ImportModel::update(std::string_view text)
     m_watch.clear();
     if (!recognized())
         return;
-    if (m_kind == crypto::SecretKind::EthAddress) {
-        // Nothing to derive: the address IS the wallet.
-        m_watch = crypto::eth_checksum_address(trimmed(text));
+    if (crypto::is_watch_kind(m_kind)) {
+        // Nothing to derive: the address IS the wallet. EVM addresses
+        // normalize to their checksum case; base58 families are
+        // case-significant and pass through as pasted.
+        m_watch = m_kind == crypto::SecretKind::EthAddress
+            ? crypto::eth_checksum_address(trimmed(text))
+            : std::string(trimmed(text));
         return;
     }
     m_selected = uint8_t(default_preset(m_kind));
@@ -96,7 +100,7 @@ std::optional<vault::Wallet> ImportModel::build(std::string_view text) const
 {
     const crypto::DetectedSecret hit = crypto::detect_secret(text);
     if (hit.kind == crypto::SecretKind::Unrecognized
-        || hit.kind == crypto::SecretKind::EthAddress)
+        || crypto::is_watch_kind(hit.kind))
         return std::nullopt;
     return wallet_of(hit, text);
 }

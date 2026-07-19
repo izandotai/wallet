@@ -106,3 +106,18 @@ SolKey::~SolKey()
 }
 
 }
+
+namespace izan::crypto {
+
+bool valid_sol_address(std::string_view text)
+{
+    // 32 bytes land at 32-44 base58 digits.
+    if (text.size() < 32 || text.size() > 44)
+        return false;
+    const std::string z(text);
+    uint8_t raw[32];
+    size_t size = sizeof raw;
+    return b58tobin(raw, &size, z.c_str()) && size == 32;
+}
+
+}

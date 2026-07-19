@@ -108,6 +108,8 @@
     "vault.detect.wif": "WIF秘密鍵",
     "vault.detect.solkey": "Solana秘密鍵",
     "vault.detect.watch": "EVM ウォッチアドレス",
+    "vault.detect.watch.btc": "BTC ウォッチアドレス",
+    "vault.detect.watch.sol": "Solana ウォッチアドレス",
     "vault.detect.none": "認識できません",
     "wallet.preset": "導出方式：",
     "send.err.family": "このウォレットは自身のチェーンで受け取れます。送金は現在 EVM のみ対応です。",

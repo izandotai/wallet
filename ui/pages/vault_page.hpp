@@ -106,11 +106,16 @@ public:
 
     // The chain family the active addresses live on — the read-only
     // pages route their balance and ledger engines by this. Watch
-    // wallets are EVM addresses (the only kind the import accepts).
+    // wallets carry their family in the sidecar.
     keyd::ChainFamily active_family() const
     {
-        if (m_mode == Mode::Watch)
+        if (m_mode == Mode::Watch) {
+            if (m_meta.watch_family == "btc")
+                return keyd::ChainFamily::Btc;
+            if (m_meta.watch_family == "sol")
+                return keyd::ChainFamily::Sol;
             return keyd::ChainFamily::Eth;
+        }
         return keyd::preset_family(keyd::DerivePreset(m_meta.preset));
     }
 

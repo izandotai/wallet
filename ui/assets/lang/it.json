@@ -108,6 +108,8 @@
     "vault.detect.wif": "Chiave privata WIF",
     "vault.detect.solkey": "Chiave privata Solana",
     "vault.detect.watch": "Indirizzo EVM da osservare",
+    "vault.detect.watch.btc": "Indirizzo BTC da osservare",
+    "vault.detect.watch.sol": "Indirizzo Solana da osservare",
     "vault.detect.none": "Non riconosciuto",
     "wallet.preset": "Derivazione:",
     "send.err.family": "Questo portafoglio riceve sulla propria catena; l'invio per ora è solo EVM.",

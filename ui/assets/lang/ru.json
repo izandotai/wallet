@@ -108,6 +108,8 @@
     "vault.detect.wif": "Приватный ключ WIF",
     "vault.detect.solkey": "Приватный ключ Solana",
     "vault.detect.watch": "EVM-адрес для наблюдения",
+    "vault.detect.watch.btc": "BTC-адрес для наблюдения",
+    "vault.detect.watch.sol": "Solana-адрес для наблюдения",
     "vault.detect.none": "Не распознано",
     "wallet.preset": "Схема деривации:",
     "send.err.family": "Этот кошелёк принимает средства в своей сети; отправка пока доступна только для EVM.",

@@ -213,7 +213,7 @@ TEST_CASE("a watch wallet is a sidecar with no vault behind it")
     ui::WalletStore store(tmp.path);
     constexpr const char* kAddr = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
-    const std::string id = store.create_watch("盯着老鲸", kAddr);
+    const std::string id = store.create_watch("盯着老鲸", kAddr, "evm");
     REQUIRE(store.known(id));
     // No vault file was ever written — the wallet is its sidecar.
     CHECK_FALSE(std::filesystem::exists(store.vault_path(id)));
@@ -251,4 +251,34 @@ TEST_CASE("the import model recognizes a watch address and builds no vault")
     // Garbage that merely looks addressish is still refused.
     model.update("0xd8da6bf26964af9d7eed9e03e53415d37aa9604");
     CHECK_FALSE(model.recognized());
+}
+
+TEST_CASE("watch imports speak three families and remember which")
+{
+    ui::ImportModel model;
+    // BTC (native segwit) and Solana addresses become watch wallets
+    // of their own family; normalization leaves base58 untouched.
+    model.update("bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
+    CHECK(model.kind() == crypto::SecretKind::BtcAddress);
+    CHECK(
+        model.watch_address() == "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
+    CHECK(crypto::watch_family(model.kind()) == std::string("btc"));
+
+    model.update("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    CHECK(model.kind() == crypto::SecretKind::SolAddress);
+    CHECK(crypto::watch_family(model.kind()) == std::string("sol"));
+    CHECK_FALSE(model.build("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+            .has_value());
+
+    // The family survives the sidecar round trip and a bad hand-edit
+    // falls back to evm.
+    TempDir tmp;
+    ui::WalletStore store(tmp.path);
+    const std::string id = store.create_watch(
+        "鲸鱼SOL", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "sol");
+    CHECK(store.read_meta(id).watch_family == "sol");
+    ui::AccountsMeta meta = store.read_meta(id);
+    meta.watch_family = "cosmos";
+    store.write_meta(id, meta);
+    CHECK(store.read_meta(id).watch_family == "evm");
 }

@@ -6,6 +6,7 @@
 #include "core/crypto/bip39.hpp"
 #include "core/crypto/btc.hpp"
 #include "core/crypto/eth.hpp"
+// btc/sol address validators live with their curves
 #include "core/crypto/sol.hpp"
 
 namespace izan::crypto {
@@ -76,8 +77,14 @@ DetectedSecret detect_secret(std::string_view text)
         out.key = std::move(*key);
     } else if (!eth_checksum_address(body).empty()) {
         // A bare address is a wallet to watch, not a wallet to spend
-        // from — no key rides along.
+        // from — no key rides along. One kind per family; the order
+        // is safe because the encodings cannot collide (0x-hex,
+        // base58check/bech32, bare base58 of 32 bytes).
         out.kind = SecretKind::EthAddress;
+    } else if (valid_btc_address(body)) {
+        out.kind = SecretKind::BtcAddress;
+    } else if (valid_sol_address(body)) {
+        out.kind = SecretKind::SolAddress;
     }
     return out;
 }

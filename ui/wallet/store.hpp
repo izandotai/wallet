@@ -28,8 +28,11 @@ struct AccountsMeta {
     std::string kind;                // kKind*; empty on legacy sidecars
     std::vector<std::string> labels; // per-account notes, index-aligned
     // Watch-only wallets: the observed addresses, public by nature —
-    // a sidecar-only wallet with no vault file at all.
+    // a sidecar-only wallet with no vault file at all. watch_family
+    // says which chain family the addresses live on ("evm"/"btc"/
+    // "sol"); empty on pre-family sidecars and means evm.
     std::vector<std::string> watch;
+    std::string watch_family;
 };
 
 // A wallet's display name is anything the user likes, in any script;
@@ -94,9 +97,10 @@ public:
     void delete_wallet(const std::string& id);
 
     // A watch-only wallet: sidecar only, no vault ever written. The
-    // address arrives already checksummed (the import layer validates).
-    std::string create_watch(
-        std::string_view display, std::string_view address);
+    // address arrives validated and normalized by the import layer;
+    // family names its chain family in the registry vocabulary.
+    std::string create_watch(std::string_view display, std::string_view address,
+        std::string_view family);
 
     static std::string mint_id(std::string_view display);
 

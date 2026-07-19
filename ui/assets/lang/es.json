@@ -108,6 +108,8 @@
     "vault.detect.wif": "Clave privada WIF",
     "vault.detect.solkey": "Clave privada de Solana",
     "vault.detect.watch": "Dirección EVM de observación",
+    "vault.detect.watch.btc": "Dirección BTC de observación",
+    "vault.detect.watch.sol": "Dirección Solana de observación",
     "vault.detect.none": "No reconocido",
     "wallet.preset": "Derivación:",
     "send.err.family": "Esta cartera recibe en su propia cadena; el envío por ahora es solo EVM.",

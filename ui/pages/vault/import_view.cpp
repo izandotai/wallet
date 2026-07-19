@@ -25,6 +25,10 @@ namespace {
             return tr("vault.detect.solkey");
         case crypto::SecretKind::EthAddress:
             return tr("vault.detect.watch");
+        case crypto::SecretKind::BtcAddress:
+            return tr("vault.detect.watch.btc");
+        case crypto::SecretKind::SolAddress:
+            return tr("vault.detect.watch.sol");
         case crypto::SecretKind::Unrecognized:
             break;
         }
@@ -115,7 +119,7 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
     // Step::Confirm — the person has seen the address; now the wallet
     // gets its name and its passphrase. A watch import has no secret
     // and therefore no passphrase: a name is all it needs.
-    const bool watching = m_model.kind() == crypto::SecretKind::EthAddress;
+    const bool watching = crypto::is_watch_kind(m_model.kind());
     if (watching) {
         ImGui::TextUnformatted(detect_text(tr, m_model.kind()));
         kit_caption(m_model.watch_address().c_str());
@@ -164,6 +168,7 @@ ImportView::Event ImportView::draw(const i18n::Catalog& tr, bool busy,
             ev.type = Event::Type::Submit;
             ev.name = name;
             ev.watch = m_model.watch_address();
+            ev.watch_family = crypto::watch_family(m_model.kind());
             sodium_memzero(m_secret_in.data(), m_secret_in.size());
         } else if (strnlen(m_pass.data(), m_pass.size()) == 0) {
             ev.err = "vault.msg.empty_pass";

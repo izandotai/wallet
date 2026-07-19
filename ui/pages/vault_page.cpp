@@ -463,7 +463,8 @@ void VaultPage::start_import(ImportView::Event ev)
     // A watch import is pure filesystem — no vault, no proving, no
     // job; the wallet exists the moment its sidecar does.
     if (!ev.watch.empty()) {
-        const std::string id = m_store.create_watch(ev.name, ev.watch);
+        const std::string id
+            = m_store.create_watch(ev.name, ev.watch, ev.watch_family);
         switch_active(id);
         return;
     }

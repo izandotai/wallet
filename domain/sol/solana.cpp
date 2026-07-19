@@ -5,6 +5,8 @@
 
 #include <glaze/glaze.hpp>
 
+#include "core/crypto/sol.hpp"
+
 extern "C" {
 #include <base58.h>
 }
@@ -13,13 +15,7 @@ namespace izan::sol {
 
 bool valid_address(std::string_view text)
 {
-    // 32 bytes land at 32–44 base58 digits.
-    if (text.size() < 32 || text.size() > 44)
-        return false;
-    const std::string z(text); // decode wants a terminator
-    uint8_t raw[32];
-    size_t size = sizeof raw;
-    return b58tobin(raw, &size, z.c_str()) && size == 32;
+    return crypto::valid_sol_address(text);
 }
 
 units::U256 parse_balance_result(std::string_view result_json)

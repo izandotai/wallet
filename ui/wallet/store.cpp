@@ -96,8 +96,13 @@ AccountsMeta WalletStore::read_meta(const std::string& id) const
                 parsed, buf.str()))
             meta = parsed;
     }
-    if (meta.kind == kKindWatch)
+    if (meta.kind == kKindWatch) {
         meta.count = uint32_t(meta.watch.size());
+        // A hand-edited family the wallet has no engine for falls
+        // back to evm — the pre-family meaning.
+        if (meta.watch_family != "btc" && meta.watch_family != "sol")
+            meta.watch_family = "evm";
+    }
     if (meta.count == 0)
         meta.count = 1;
     if (meta.active >= meta.count)
@@ -128,13 +133,14 @@ void WalletStore::delete_wallet(const std::string& id)
 }
 
 std::string WalletStore::create_watch(
-    std::string_view display, std::string_view address)
+    std::string_view display, std::string_view address, std::string_view family)
 {
     const std::string id = mint_id(display);
     AccountsMeta meta;
     meta.name = display;
     meta.kind = kKindWatch;
     meta.watch.emplace_back(address);
+    meta.watch_family = family;
     meta.count = 1;
     write_meta(id, meta);
     rescan();

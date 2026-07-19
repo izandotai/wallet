@@ -108,6 +108,8 @@
     "vault.detect.wif": "WIF private key",
     "vault.detect.solkey": "Solana private key",
     "vault.detect.watch": "EVM watch address",
+    "vault.detect.watch.btc": "BTC watch address",
+    "vault.detect.watch.sol": "Solana watch address",
     "vault.detect.none": "Not recognized",
     "wallet.preset": "Derivation:",
     "send.err.family": "This wallet receives on its own chain; sending is EVM-only for now.",

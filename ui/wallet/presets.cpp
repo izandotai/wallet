@@ -61,6 +61,8 @@ std::span<const keyd::DerivePreset> presets_for(crypto::SecretKind kind)
     case crypto::SecretKind::SolKey:
         return kSolKey;
     case crypto::SecretKind::EthAddress: // nothing to derive from
+    case crypto::SecretKind::BtcAddress:
+    case crypto::SecretKind::SolAddress:
     case crypto::SecretKind::Unrecognized:
         break;
     }

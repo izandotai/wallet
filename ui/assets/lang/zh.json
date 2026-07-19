@@ -108,6 +108,8 @@
     "vault.detect.wif": "WIF 私钥",
     "vault.detect.solkey": "Solana 私钥",
     "vault.detect.watch": "EVM 观察地址",
+    "vault.detect.watch.btc": "BTC 观察地址",
+    "vault.detect.watch.sol": "Solana 观察地址",
     "vault.detect.none": "无法识别",
     "wallet.preset": "派生方案：",
     "send.err.family": "该钱包在其所属链上收款；发送目前仅支持 EVM。",
