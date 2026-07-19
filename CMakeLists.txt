@@ -79,7 +79,7 @@ FetchContent_Declare(glaze
 # pin the commit.
 FetchContent_Declare(izan_crypto
     GIT_REPOSITORY https://github.com/izandotai/izan-crypto.git
-    GIT_TAG 9fceb35
+    GIT_TAG 83899cb
     EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(doctest sodium glaze Boost izan_crypto)
