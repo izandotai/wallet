@@ -40,6 +40,7 @@ private:
         std::string note;      // "Chain · 07-18 19:02"
         std::string when_hint; // the full moment in the user's clock
         std::string amount;    // "+0.05 ETH", signed
+        std::string symbol;    // the moved asset's face for the avatar
         std::string link;      // explorer URL, may be empty
         uint64_t time = 0;     // unix seconds, the merge key
         bool incoming = false;

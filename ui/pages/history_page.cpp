@@ -106,6 +106,7 @@ void HistoryPage::refresh(const std::array<std::string, 3>& addrs)
                         row.time = tx.time;
                         row.note = chain.name + " · " + moment_of(tx.time);
                         row.when_hint = local_moment_of(tx.time);
+                        row.symbol = chain.symbol;
                         row.amount = (tx.incoming ? "+" : "−")
                             + units::format_units_display(
                                 tx.amount, chain.decimals)
@@ -131,6 +132,7 @@ void HistoryPage::refresh(const std::array<std::string, 3>& addrs)
                             ? chain.name + " · " + moment_of(sig.time)
                             : chain.name;
                         row.when_hint = local_moment_of(sig.time);
+                        row.symbol = chain.symbol;
                         if (!chain.explorer.empty())
                             row.link = chain.explorer + "/tx/" + row.hash;
                         local.push_back(std::move(row));
@@ -152,6 +154,7 @@ void HistoryPage::refresh(const std::array<std::string, 3>& addrs)
                         row.time = rec.time;
                         row.note = chain.name + " · " + moment_of(rec.time);
                         row.when_hint = local_moment_of(rec.time);
+                        row.symbol = token ? rec.token_symbol : chain.symbol;
                         row.amount = (rec.incoming ? "+" : "−")
                             + units::format_units_display(rec.value,
                                 token ? rec.token_decimals : chain.decimals)
@@ -309,7 +312,8 @@ void HistoryPage::draw(const i18n::Catalog& tr)
             if (kit_tx_row(row.hash.c_str(), row.incoming,
                     row.counterparty.c_str(), row.note.c_str(),
                     row.amount.c_str(), row.failed, row.hash.c_str(),
-                    row.when_hint.empty() ? nullptr : row.when_hint.c_str())
+                    row.when_hint.empty() ? nullptr : row.when_hint.c_str(),
+                    row.symbol.empty() ? nullptr : row.symbol.c_str())
                 && !row.link.empty())
                 kit_open_url(row.link.c_str());
             ImGui::PopID();
