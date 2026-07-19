@@ -46,6 +46,7 @@ enum class Op : uint8_t {
     RootSecret = 0x46,   // body: kind(1) — see RevealKind — then bytes
     Signed = 0x47,       // body: y_parity(1) || r(32) || s(32)
     AddressIs = 0x48,    // body: kind(1) || utf-8 EIP-55 address
+    SignedSol = 0x49,    // body: ed25519 signature (64) over the message
 };
 
 // First byte of a RootSecret body.
@@ -56,6 +57,7 @@ enum class RevealKind : uint8_t {
 };
 
 inline constexpr std::size_t kSignedBodyBytes = 65;
+inline constexpr std::size_t kSignedSolBodyBytes = 64;
 
 // Wrong-passphrase throttle: once this many verifications fail in a
 // row, every further attempt stalls (seconds growing with the streak,

@@ -16,6 +16,7 @@
 
 #include "core/secure/secure_bytes.hpp"
 #include "core/secure/vault.hpp"
+#include "domain/sol/sol_tx.hpp"
 #include "keyd/audit.hpp"
 #include "keyd/autolock.hpp"
 #include "keyd/hardening.hpp"
@@ -327,10 +328,27 @@ int child_main(int argc, char** argv)
                     send_err(channel, "unknown proposal");
                     break;
                 }
+                // The envelope names the identity that signs — its
+                // family picks the branch, and Solana proposals must
+                // first read as the one shape the approval screen can
+                // show: a bare System.Transfer. Unreadable = unsigned.
                 SignedDigest signature;
+                SolSignedMessage sol_signature;
+                bool is_sol = false;
                 try {
                     const ProposalBody body = parse_proposal(p->payload);
-                    signature = sign_payload(*opened, body.tx, body.account);
+                    is_sol = preset_family(body.preset) == ChainFamily::Sol;
+                    if (is_sol) {
+                        sol::parse_transfer_message(body.tx);
+                        sol_signature = sign_sol_payload(
+                            *opened, body.tx, body.account, body.preset);
+                    } else if (preset_family(body.preset) == ChainFamily::Btc) {
+                        throw std::invalid_argument(
+                            "keyd: btc signing not yet spoken");
+                    } else {
+                        signature = sign_payload(
+                            *opened, body.tx, body.account, body.preset);
+                    }
                 } catch (const std::exception& e) {
                     plane->audit.append(
                         "proposal.sign.fail id=" + std::to_string(id));
@@ -343,12 +361,21 @@ int child_main(int argc, char** argv)
                 // state.
                 plane->queue.resolve(id, ProposalState::Approved);
                 char digestHex[65];
-                sodium_bin2hex(digestHex, sizeof digestHex,
-                    signature.digest.data(), signature.digest.size());
+                const auto& dig
+                    = is_sol ? sol_signature.digest : signature.digest;
+                sodium_bin2hex(
+                    digestHex, sizeof digestHex, dig.data(), dig.size());
                 // One record per signature — the countable third leg of
                 // the sign ≡ approve ≡ audit identity.
                 plane->audit.append("proposal.approve id=" + std::to_string(id)
-                    + " digest=" + digestHex + " signer=" + signature.signer);
+                    + (is_sol ? " kind=sol-transfer" : "")
+                    + " digest=" + digestHex + " signer="
+                    + (is_sol ? sol_signature.signer : signature.signer));
+                if (is_sol) {
+                    send_op(channel, Op::SignedSol, sol_signature.sig.data(),
+                        sol_signature.sig.size());
+                    break;
+                }
                 uint8_t body[kSignedBodyBytes];
                 body[0] = signature.sig.y_parity;
                 std::memcpy(body + 1, signature.sig.r.data(), 32);

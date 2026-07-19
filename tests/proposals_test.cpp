@@ -20,7 +20,9 @@ extern "C" {
 // to fix, not ours to drown in either.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wvolatile"
+#include <base58.h>
 #include <ecdsa.h>
+#include <ed25519-donna/ed25519.h>
 #include <secp256k1.h>
 #include <sha3.h>
 #pragma GCC diagnostic pop
@@ -29,6 +31,7 @@ extern "C" {
 #include "core/crypto/bip39.hpp"
 #include "core/crypto/eth.hpp"
 #include "core/secure/vault.hpp"
+#include "domain/sol/sol_tx.hpp"
 #include "keyd/audit.hpp"
 #include "keyd/client.hpp"
 #include "keyd/proposals.hpp"
@@ -561,3 +564,45 @@ TEST_CASE("keyd proposals: a key-only wallet signs and reveals its key")
 }
 
 #endif
+
+TEST_CASE("keyd proposals: a solana transfer signs, anything else is refused")
+{
+    const std::string vaultPath = make_test_vault("correct horse");
+    const std::string auditPath = temp_file("proposals_sol.audit");
+    std::filesystem::remove(auditPath);
+    KeydClient keyd = KeydClient::spawn(self_exe(), vaultPath, auditPath);
+    REQUIRE(keyd.unlock(sb_from("correct horse")));
+
+    const uint8_t solPreset = uint8_t(izan::keyd::DerivePreset::SolPhantom);
+    const auto from = keyd.address(0, solPreset);
+    REQUIRE(from);
+    std::array<uint8_t, 32> hash {};
+    hash.fill(0x11);
+    const auto msg = izan::sol::encode_transfer_message(
+        *from, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 5000, hash);
+    const auto env = izan::keyd::make_envelope(
+        izan::keyd::DerivePreset::SolPhantom, 0, msg);
+    const auto id = keyd.submit_ui(env);
+    REQUIRE(id);
+
+    const auto sig = keyd.approve_sol(*id, sb_from("correct horse"));
+    REQUIRE(sig);
+    // The signature verifies against the account's own public key —
+    // the base58 address decoded back to its 32 bytes.
+    uint8_t pub[32];
+    std::size_t pubSize = sizeof pub;
+    REQUIRE(b58tobin(pub, &pubSize, from->c_str()));
+    CHECK(ed25519_sign_open(msg.data(), msg.size(), pub, sig->data()) == 0);
+    // Once signed, spent — for either twin.
+    CHECK(!keyd.approve_sol(*id, sb_from("correct horse")));
+    CHECK(!keyd.approve(*id, sb_from("correct horse")));
+
+    // The whitelist: bytes the approval screen cannot read as a bare
+    // transfer never get a signature, however valid the passphrase.
+    const std::vector<uint8_t> junk { 0xde, 0xad, 0xbe, 0xef };
+    const auto badId = keyd.submit_ui(izan::keyd::make_envelope(
+        izan::keyd::DerivePreset::SolPhantom, 0, junk));
+    REQUIRE(badId);
+    CHECK(!keyd.approve_sol(*badId, sb_from("correct horse")));
+    CHECK(query_state(keyd.pipe_name(), *badId) == ProposalState::Pending);
+}

@@ -206,7 +206,7 @@ if(WIN32)
     )
     target_include_directories(izan_keyd PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(izan_keyd PUBLIC izan_ipc izan_secure
-        PRIVATE izan_crypto)
+        PRIVATE izan_crypto izan_soltx)
 endif()
 
 # L1 platform: HTTPS transport and the user's clock. TLS trust anchors
@@ -223,6 +223,15 @@ target_link_libraries(izan_platform
 if(WIN32)
     target_link_libraries(izan_platform PUBLIC ws2_32 mswsock)
 endif()
+
+# Offline transaction grammar shared by the trust plane and the
+# domain: the encoder the send flow speaks and the whitelist parser
+# the approval screen reads. No network, ever.
+add_library(izan_soltx STATIC
+    domain/sol/sol_tx.cpp
+)
+target_include_directories(izan_soltx PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(izan_soltx PRIVATE izan_crypto)
 
 # L3 domain: chain registry and RPC plumbing. Links primitives only —
 # never the trust plane.
@@ -241,10 +250,9 @@ add_library(izan_domain STATIC
     domain/swap/lifi.cpp
     domain/btc/esplora.cpp
     domain/sol/solana.cpp
-    domain/sol/sol_tx.cpp
 )
 target_include_directories(izan_domain PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(izan_domain PUBLIC izan_units
+target_link_libraries(izan_domain PUBLIC izan_units izan_soltx
     PRIVATE glaze::glaze izan_codec izan_crypto izan_platform)
 
 # UI string catalogs. Headless on purpose: pages read it, tests audit

@@ -89,6 +89,12 @@ public:
     std::optional<std::vector<PendingItem>> pending();
     std::optional<std::pair<Provenance, std::vector<uint8_t>>> fetch(
         uint64_t id);
+    // The Solana twin: same request, a 64-byte ed25519 signature back.
+    // Callers know their proposal's family from the envelope they
+    // built; asking with the wrong twin reads as an error reply.
+    std::optional<std::array<uint8_t, 64>> approve_sol(
+        uint64_t id, const secure::SecureBytes& passphrase);
+
     std::optional<ApprovedSignature> approve(
         uint64_t id, const secure::SecureBytes& passphrase);
     bool deny(uint64_t id);
