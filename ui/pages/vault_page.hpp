@@ -125,6 +125,13 @@ public:
                                            : std::string();
     }
 
+    // The preset byte the active wallet wears on a family — send flows
+    // speaking for a non-birth identity put this in the envelope.
+    uint8_t family_preset_value(std::string_view family) const
+    {
+        return uint8_t(family_preset(m_meta, family));
+    }
+
     // The chain family the active addresses live on — the read-only
     // pages route their balance and ledger engines by this. Watch
     // wallets carry their family in the sidecar.

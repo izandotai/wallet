@@ -1,6 +1,7 @@
 #include "ui/pages/send_page.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cstring>
 #include <fstream>
@@ -15,6 +16,8 @@
 #include "core/crypto/eth.hpp"
 #include "core/units/decimal.hpp"
 #include "domain/chains/rpc_client.hpp"
+#include "domain/sol/sol_tx.hpp"
+#include "domain/sol/solana.hpp"
 #include "keyd/signer.hpp"
 #include "ui/shell/ime.hpp"
 #include "ui/widgets/kit.hpp"
@@ -113,8 +116,13 @@ SendPage::SendPage(const std::filesystem::path& data_dir,
     }
     for (int i = 0; i < int(m_registry.all().size()); ++i) {
         const chains::ChainSpec& chain = m_registry.all()[std::size_t(i)];
+        if (chain.family == "sol") {
+            // Whole-coin sends only; SPL tokens are a later verse.
+            m_assets.push_back({ i, chain.symbol, "", chain.decimals });
+            continue;
+        }
         if (!chain.is_evm())
-            continue; // non-EVM families have no send/swap engine yet
+            continue; // BTC has no send engine yet
         m_assets.push_back({ i, chain.symbol, "", chain.decimals });
         for (const assets::TokenSpec* token : tokens.tokens_for(chain.chain_id))
             m_assets.push_back(
@@ -149,6 +157,9 @@ void SendPage::reset_to_form()
 {
     sodium_memzero(m_pass.data(), m_pass.size());
     m_tx = tx::Eip1559Tx {};
+    m_sol_send = false;
+    m_sol_lamports = 0;
+    m_sol_msg.clear();
     m_proposal = 0;
     m_status.clear();
     m_stage = Stage::Form;
@@ -176,6 +187,10 @@ void SendPage::poll_job()
             m_tx.max_priority_fee_per_gas
                 = m_job->fees.max_priority_fee_per_gas;
             m_tx.max_fee_per_gas = m_job->fees.max_fee_per_gas;
+            m_sol_blockhash = m_job->blockhash;
+            m_sol_balance = m_job->balance;
+            m_sol_to_balance = m_job->to_balance;
+            m_sol_rent = m_job->rent;
             m_stage = Stage::Review;
             m_focus_pass = true;
             m_job.reset();
@@ -260,13 +275,20 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     // — the recipient is the irreversible part and leads the form.
     ImGui::SetCursorPosX(left);
     ImGui::SetNextItemWidth(col);
+    // The selected asset's family decides what a valid recipient even
+    // looks like — the validator switches with the menu.
+    const bool sol_asset = chain.family == "sol";
     kit_address_field("##send-to", tr("send.to"), m_to.data(), m_to.size(),
         tr("ui.paste"), tr("ui.copy_action"), tr("ui.clear"),
-        [](const char* s) { return !crypto::eth_checksum_address(s).empty(); });
+        [sol_asset](const char* s) {
+            return sol_asset ? sol::valid_address(s)
+                             : !crypto::eth_checksum_address(s).empty();
+        });
 
     const bool to_present = m_to[0] != '\0';
-    const bool to_valid
-        = to_present && !crypto::eth_checksum_address(m_to.data()).empty();
+    const bool to_valid = to_present
+        && (sol_asset ? sol::valid_address(m_to.data())
+                      : !crypto::eth_checksum_address(m_to.data()).empty());
     if (to_present && !to_valid)
         centered_caption(tr("send.err.address"));
 
@@ -308,15 +330,12 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     kit_vspace(0.6f);
 
     const bool unlocked = m_vault.unlocked() && m_vault.keyd() != nullptr;
-    // Only the EVM family has a transaction engine so far; a wallet
-    // wearing a BTC or Solana preset receives on that chain but cannot
-    // spend from here yet.
-    const bool evm
-        = keyd::preset_family(keyd::DerivePreset(m_vault.active_preset()))
-        == keyd::ChainFamily::Eth;
-
-    // The sender is not a choice — it is the active account, named.
-    const std::string sender = m_vault.active_address();
+    // The wallet must have a self on the asset's family: an all-chain
+    // seed has all of them, a key wallet only its curve's. BTC assets
+    // never reach this menu (no engine yet).
+    const std::string sender
+        = m_vault.family_address(sol_asset ? "sol" : "evm");
+    const bool can_send = !sender.empty();
     if (unlocked && !sender.empty()) {
         ImGui::PushFont(nullptr, kit_caption_size());
         const std::string who = m_vault.active_name() + " · "
@@ -332,12 +351,12 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     } else if (!unlocked) {
         centered_caption(tr("send.state.locked"));
     }
-    if (unlocked && !evm)
+    if (unlocked && !can_send)
         centered_caption(tr("send.err.family"));
 
     kit_vspace(0.5f);
 
-    const bool ready = unlocked && evm && to_valid && m_amount[0] != '\0';
+    const bool ready = unlocked && can_send && to_valid && m_amount[0] != '\0';
     ImGui::SetCursorPosX(left);
     ImGui::BeginDisabled(!ready || m_job != nullptr);
     if (kit_primary_button(tr("send.review_send"), col))
@@ -354,8 +373,13 @@ void SendPage::draw_form(const i18n::Catalog& tr)
 void SendPage::begin_review()
 {
     m_status.clear();
-    m_to_checked = crypto::eth_checksum_address(m_to.data());
     const Asset& asset = selected_asset();
+    m_sol_send = selected_chain().family == "sol";
+    if (m_sol_send) {
+        begin_sol_review();
+        return;
+    }
+    m_to_checked = crypto::eth_checksum_address(m_to.data());
     try {
         m_tx = tx::Eip1559Tx {};
         m_tx.chain_id = selected_chain().chain_id;
@@ -420,6 +444,161 @@ void SendPage::begin_review()
     }).detach();
 }
 
+void SendPage::begin_sol_review()
+{
+    const Asset& asset = selected_asset();
+    std::string to(m_to.data());
+    while (!to.empty() && (to.back() == ' ' || to.back() == '\n'))
+        to.pop_back();
+    m_to_checked = to;
+    try {
+        const units::U256 amount
+            = units::parse_units(m_amount.data(), asset.decimals);
+        const std::string dec = amount.to_dec();
+        m_sol_lamports = 0;
+        const auto res = std::from_chars(
+            dec.data(), dec.data() + dec.size(), m_sol_lamports);
+        if (res.ec != std::errc() || res.ptr != dec.data() + dec.size()
+            || m_sol_lamports == 0)
+            throw std::invalid_argument("amount");
+        m_amount_label
+            = units::format_units(amount, asset.decimals) + " " + asset.symbol;
+        m_token_send = false;
+    } catch (const std::exception&) {
+        m_status = "send.err.amount";
+        m_status_is_key = true;
+        return;
+    }
+    m_account = m_vault.active_account();
+    m_preset = m_vault.family_preset_value("sol");
+    auto from = m_vault.keyd()->address(m_account, m_preset);
+    if (!from) {
+        m_status = m_vault.keyd()->last_error();
+        m_status_is_key = false;
+        return;
+    }
+    m_from = *from;
+    if (m_from == m_to_checked) {
+        m_status = "send.err.address";
+        m_status_is_key = true;
+        return;
+    }
+    auto job = std::make_shared<Job>();
+    m_job = job;
+    m_stage = Stage::Quoting;
+    kit_dialog_open("##send-confirm");
+    std::thread([job, spec = selected_chain(), from = m_from,
+                    to = m_to_checked]() mutable {
+        try {
+            chains::RpcClient rpc(std::move(spec));
+            job->blockhash = sol::latest_blockhash(rpc);
+            const std::string bal = sol::native_balance(rpc, from).to_dec();
+            std::from_chars(bal.data(), bal.data() + bal.size(), job->balance);
+            const std::string tb = sol::native_balance(rpc, to).to_dec();
+            std::from_chars(tb.data(), tb.data() + tb.size(), job->to_balance);
+            job->rent = sol::rent_exempt_minimum(rpc);
+            job->phase.store(1);
+        } catch (const std::exception& e) {
+            job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            job->error = "worker failed";
+            job->phase.store(2);
+        }
+    }).detach();
+}
+
+void SendPage::confirm_sol_send()
+{
+    // The quote's guard rails, checked with the figures on screen:
+    // Solana refuses dust below the rent floor, so refuse it here
+    // before any signature exists. Verbatim messages — node-grade
+    // plumbing errors, not yet in the phrasebook.
+    constexpr uint64_t kFeeLamports = 5000;
+    if (m_sol_balance < m_sol_lamports + kFeeLamports) {
+        m_status = "balance cannot cover amount plus the 0.000005 SOL fee";
+        m_status_is_key = false;
+        return;
+    }
+    const uint64_t left = m_sol_balance - m_sol_lamports - kFeeLamports;
+    if (left != 0 && left < m_sol_rent) {
+        m_status = "remainder would fall below the rent floor; "
+                   "send less, or everything";
+        m_status_is_key = false;
+        return;
+    }
+    if (m_sol_to_balance == 0 && m_sol_lamports < m_sol_rent) {
+        m_status = "recipient is a fresh account; the amount must cover "
+                   "its rent floor";
+        m_status_is_key = false;
+        return;
+    }
+    if (m_proposal == 0) {
+        try {
+            m_sol_msg = sol::encode_transfer_message(
+                m_from, m_to_checked, m_sol_lamports, m_sol_blockhash);
+        } catch (const std::exception& e) {
+            m_status = e.what();
+            m_status_is_key = false;
+            return;
+        }
+        auto id = m_vault.keyd()->submit_ui(keyd::make_envelope(
+            keyd::DerivePreset(m_preset), m_account, m_sol_msg));
+        if (!id) {
+            m_status = m_vault.keyd()->last_error();
+            m_status_is_key = false;
+            return;
+        }
+        m_proposal = *id;
+    }
+    SecureBytes pass = take_secret(m_pass);
+    auto job = std::make_shared<Job>();
+    m_job = job;
+    m_stage = Stage::Delivering;
+    m_status.clear();
+    std::thread([job, keyd = m_vault.keyd(), spec = selected_chain(),
+                    msg = m_sol_msg, proposal = m_proposal,
+                    pass = std::move(pass)]() mutable {
+        try {
+            auto sig = keyd->approve_sol(proposal, pass);
+            pass.reset();
+            if (!sig)
+                throw std::runtime_error(keyd->last_error());
+            const std::vector<uint8_t> raw = sol::assemble_tx(*sig, msg);
+            job->step.store(1);
+            chains::RpcClient rpc(std::move(spec));
+            job->tx_hash = sol::send_transaction(rpc, raw);
+            job->step.store(2);
+            // A blockhash lives ~90 seconds; two minutes of polling
+            // covers the whole window plus the node's digestion.
+            for (int tries = 0; tries < 60; ++tries) {
+                const sol::SigStatus st
+                    = sol::signature_status(rpc, job->tx_hash);
+                if (st == sol::SigStatus::Confirmed
+                    || st == sol::SigStatus::Finalized) {
+                    job->tx_success = true;
+                    job->phase.store(1);
+                    return;
+                }
+                if (st == sol::SigStatus::Failed) {
+                    job->tx_success = false;
+                    job->phase.store(1);
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+            }
+            throw std::runtime_error("no confirmation after 2 minutes; "
+                                     "check the explorer before retrying");
+        } catch (const std::exception& e) {
+            job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            job->error = "worker failed";
+            job->phase.store(2);
+        }
+    }).detach();
+}
+
 void SendPage::confirm_send()
 {
     if (strnlen(m_pass.data(), m_pass.size()) == 0)
@@ -427,6 +606,10 @@ void SendPage::confirm_send()
     if (!m_vault.keyd()) {
         m_status = "keyd gone";
         m_status_is_key = false;
+        return;
+    }
+    if (m_sol_send) {
+        confirm_sol_send();
         return;
     }
     if (m_proposal == 0) {
@@ -554,31 +737,45 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
     case Stage::Review: {
         kit_dialog_header_icon("📤", amount.c_str(), chain.name.c_str());
 
-        const units::U256 fee_max
-            = m_tx.max_fee_per_gas.checked_mul_u64(m_tx.gas_limit);
-        const std::string fee
-            = units::format_units_display(fee_max, chain.decimals) + " "
-            + chain.symbol;
-
         row(tr("send.from"), m_vault.active_name() + " · " + m_from);
         row(tr("send.to"), m_to_checked);
-        row(tr("send.fee_max"), "≤ " + fee);
-        // A native send can honestly sum coin and fee; a token send
-        // cannot — the amount and the fee live in different units.
-        if (!m_token_send) {
-            const std::string total
-                = units::format_units_display(
-                      m_tx.value.checked_add(fee_max), chain.decimals)
-                + " " + chain.symbol;
-            row(tr("send.total_max"), "≤ " + total);
+        if (m_sol_send) {
+            // Solana's fee is a flat per-signature price, exact, and
+            // both figures share the coin — the sum is honest.
+            constexpr uint64_t kFeeLamports = 5000;
+            row(tr("send.fee_max"),
+                units::format_units_display(
+                    units::U256::from_u64(kFeeLamports), chain.decimals)
+                    + " " + chain.symbol);
+            row(tr("send.total_max"),
+                units::format_units_display(
+                    units::U256::from_u64(m_sol_lamports + kFeeLamports),
+                    chain.decimals)
+                    + " " + chain.symbol);
+        } else {
+            const units::U256 fee_max
+                = m_tx.max_fee_per_gas.checked_mul_u64(m_tx.gas_limit);
+            const std::string fee
+                = units::format_units_display(fee_max, chain.decimals) + " "
+                + chain.symbol;
+            row(tr("send.fee_max"), "≤ " + fee);
+            // A native send can honestly sum coin and fee; a token send
+            // cannot — the amount and the fee live in different units.
+            if (!m_token_send) {
+                const std::string total
+                    = units::format_units_display(
+                          m_tx.value.checked_add(fee_max), chain.decimals)
+                    + " " + chain.symbol;
+                row(tr("send.total_max"), "≤ " + total);
+            }
+            char plumbing[128];
+            std::snprintf(plumbing, sizeof plumbing,
+                "nonce %llu · gas %llu · %s gwei",
+                (unsigned long long)m_tx.nonce,
+                (unsigned long long)m_tx.gas_limit,
+                units::format_units(m_tx.max_fee_per_gas, 9).c_str());
+            centered_caption(plumbing);
         }
-
-        char plumbing[128];
-        std::snprintf(plumbing, sizeof plumbing,
-            "nonce %llu · gas %llu · %s gwei", (unsigned long long)m_tx.nonce,
-            (unsigned long long)m_tx.gas_limit,
-            units::format_units(m_tx.max_fee_per_gas, 9).c_str());
-        centered_caption(plumbing);
         kit_vspace(0.4f);
 
         if (m_focus_pass) {
@@ -630,10 +827,13 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         if (m_stage == Stage::Done && m_job) {
             hero(amount.c_str());
             centered_caption(ok ? tr("send.confirmed") : tr("send.reverted"));
-            char block[64];
-            std::snprintf(block, sizeof block, "%s %llu", tr("send.block"),
-                (unsigned long long)m_job->block);
-            centered_caption(block);
+            // Solana's receipt is the signature's fate, not a block.
+            if (!m_sol_send) {
+                char block[64];
+                std::snprintf(block, sizeof block, "%s %llu", tr("send.block"),
+                    (unsigned long long)m_job->block);
+                centered_caption(block);
+            }
         } else {
             centered_caption(tr("send.failed"));
             if (!m_status.empty())

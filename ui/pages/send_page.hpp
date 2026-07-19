@@ -69,6 +69,12 @@ private:
         uint64_t nonce = 0;
         uint64_t gas = 0;
         tx::FeeQuote fees;
+        // the Solana quote: what a transfer needs to be encodable and
+        // survivable — the blockhash, both balances, the rent floor
+        std::array<uint8_t, 32> blockhash {};
+        uint64_t balance = 0;
+        uint64_t to_balance = 0;
+        uint64_t rent = 0;
         // delivery results (hash written before step goes to 2)
         std::string tx_hash;
         uint64_t block = 0;
@@ -87,6 +93,8 @@ private:
     void draw_form(const i18n::Catalog& tr);
     void draw_confirm_dialog(const i18n::Catalog& tr);
     void begin_review();
+    void begin_sol_review();
+    void confirm_sol_send();
     void confirm_send();
     void cancel_flow();
     void poll_job();
@@ -122,6 +130,15 @@ private:
     std::string m_to_checked;
     std::string m_amount_label; // "0.05 ETH", captured at review
     bool m_token_send = false;  // fee and amount live in different units
+    // The Solana leg of the draft: family chosen by the asset, message
+    // encoded at confirm time from the quoted blockhash.
+    bool m_sol_send = false;
+    uint64_t m_sol_lamports = 0;
+    std::array<uint8_t, 32> m_sol_blockhash {};
+    uint64_t m_sol_balance = 0;
+    uint64_t m_sol_to_balance = 0;
+    uint64_t m_sol_rent = 0;
+    std::vector<uint8_t> m_sol_msg;
     uint64_t m_proposal = 0;
 
     std::function<void()> m_on_settled;
