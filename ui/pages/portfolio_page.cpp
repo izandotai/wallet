@@ -295,7 +295,9 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
         = mine[0].empty() && mine[1].empty() && mine[2].empty()
         ? std::string()
         : mine[0] + "|" + mine[1] + "|" + mine[2];
-    if (key != m_followed) {
+    // Costume flips inside the receive dialog hold still here; the
+    // key changes once, when the dialog closes.
+    if (key != m_followed && !m_vault.follow_frozen()) {
         m_followed = key;
         m_addrs = mine;
         m_rows.clear();

@@ -13,6 +13,7 @@ void AccountsView::reset()
 {
     sodium_memzero(m_pass.data(), m_pass.size());
     m_labels.clear();
+    m_qr_live = false;
 }
 
 void AccountsView::set_labels(
@@ -144,7 +145,9 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
         m_open_qr = false;
         m_qr_family = -1;
     }
+    m_qr_live = false;
     if (kit_dialog_begin("##qr-view")) {
+        m_qr_live = true;
         if (m_qr_index >= 0 && std::size_t(m_qr_index) < addresses.size()) {
             // Auto-resize dialogs need constant-width content: pin the
             // width so a 44-char base58 line and a 42-char hex one

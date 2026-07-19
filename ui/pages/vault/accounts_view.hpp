@@ -38,6 +38,15 @@ public:
 
     void reset();
 
+    // True while the receive QR dialog is on screen. The read-only
+    // pages freeze their follow keys on it: format flips inside the
+    // dialog are local costume changes, and the network settles up
+    // once, when the dialog closes.
+    bool receive_open() const
+    {
+        return m_qr_live;
+    }
+
     // Loads the note buffers from the sidecar's labels; the page calls
     // this whenever the account line changes hands (unlock, switch,
     // derive).
@@ -66,6 +75,7 @@ private:
     bool m_focus_backup = false;
     int m_qr_index = -1; // row whose QR dialog is up
     bool m_open_qr = false;
+    bool m_qr_live = false;
 };
 
 }

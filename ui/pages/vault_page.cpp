@@ -185,6 +185,12 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
         m_mode = *m_pending_mode;
         m_pending_mode.reset();
     }
+    // A BTC-born wallet's account rows settle up once the receive
+    // dialog stops flipping costumes.
+    if (m_bal_stale && !m_accounts.receive_open()) {
+        m_bal_stale = false;
+        fetch_balances();
+    }
 
     m_secret_focus = false; // the secret inputs below re-mark it
     const bool busy = m_job != nullptr;
@@ -638,7 +644,7 @@ void VaultPage::handle_accounts(AccountsView::Event ev)
             == std::string("btc")) {
             m_meta.preset = chosen;
             m_session.refresh_addresses(m_meta.count, m_meta.preset);
-            fetch_balances();
+            m_bal_stale = true; // settled when the dialog closes
         } else {
             m_meta.btc_preset = chosen;
         }

@@ -125,6 +125,15 @@ public:
                                            : std::string();
     }
 
+    // True while the receive dialog is flipping costumes: the
+    // read-only pages hold their follow keys still and settle up in
+    // one refresh when it closes — format tourism must not bill the
+    // RPC endpoints per click.
+    bool follow_frozen() const
+    {
+        return m_accounts.receive_open();
+    }
+
     // The preset byte the active wallet wears on a family — send flows
     // speaking for a non-birth identity put this in the envelope.
     uint8_t family_preset_value(std::string_view family) const
@@ -255,6 +264,7 @@ private:
     std::filesystem::path m_data_dir;
     std::vector<std::string> m_balances;
     std::shared_ptr<BalanceJob> m_bal_job;
+    bool m_bal_stale = false;    // format flips settle when the QR closes
     bool m_ime_disabled = false;
     bool m_secret_focus = false; // a secret field is active this frame
 };
