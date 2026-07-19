@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.28)
 project(izan-wallet-core LANGUAGES C CXX)
+if(WIN32)
+    enable_language(RC)
+endif()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -90,7 +93,7 @@ FetchContent_Declare(izan_crypto
 option(IZAN_BUILD_UI "Build the wallet UI" ON)
 FetchContent_Declare(izan_ui
     GIT_REPOSITORY https://github.com/izandotai/izan-ui.git
-    GIT_TAG 9b623aa
+    GIT_TAG e614c92
     EXCLUDE_FROM_ALL
 )
 if(NOT (IZAN_BUILD_UI AND WIN32))
@@ -201,6 +204,7 @@ if(IZAN_BUILD_UI AND WIN32)
     # The wallet. One binary, two personalities (UI / --keyd-child).
     add_executable(izan WIN32
         apps/izan_main.cpp
+        apps/izan.rc
         ui/pages/portfolio_page.cpp
         ui/pages/history_page.cpp
         ui/pages/send_page.cpp

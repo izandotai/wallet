@@ -269,6 +269,8 @@ int main(int argc, char** argv)
 
     ui::LayoutKeeper layout_keeper;
     layout_keeper.restore(app.window(), layout_state_of(settings));
+    // The torii seal, from the exe's own resources (apps/izan.rc).
+    ui::set_window_icon_resource(app.window(), 1);
 
     ui::ChromeState chrome;
     chrome.theme_index = settings.theme_index;
