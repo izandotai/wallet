@@ -33,6 +33,9 @@ void KeydSession::teardown()
         m_client.reset();
     }
     m_addresses.clear();
+    // Books are per-wallet: a stale one would dress the NEXT wallet
+    // in the previous wallet.s other-family addresses.
+    m_family_book.clear();
     m_unlocked = false;
 }
 

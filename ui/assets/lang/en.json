@@ -119,6 +119,7 @@
     "vault.detect.none": "Not recognized",
     "wallet.preset": "Derivation:",
     "send.err.family": "This wallet has no identity on this asset's chain family.",
+    "send.err.btcformat": "Spending from this address format is not supported yet (bc1q only for now).",
     "vault.kind.ed25519": "Solana-key wallet",
     "vault.kind.watch": "Watch-only",
     "wallet.activate": "Activate",

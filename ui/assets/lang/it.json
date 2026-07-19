@@ -119,6 +119,7 @@
     "vault.detect.none": "Non riconosciuto",
     "wallet.preset": "Derivazione:",
     "send.err.family": "Questo portafoglio non ha identità su questa famiglia di catene.",
+    "send.err.btcformat": "La spesa da questo formato di indirizzo non è ancora supportata (per ora solo bc1q).",
     "vault.kind.ed25519": "Portafoglio a chiave Solana",
     "vault.kind.watch": "Sola osservazione",
     "wallet.activate": "Attiva",

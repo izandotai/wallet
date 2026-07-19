@@ -393,7 +393,9 @@ void SendPage::draw_form(const i18n::Catalog& tr)
         centered_caption(tr("send.state.locked"));
     }
     if (unlocked && !can_send)
-        centered_caption(tr("send.err.family"));
+        centered_caption(!sender.empty() && !btc_format_ok
+                ? tr("send.err.btcformat")
+                : tr("send.err.family"));
 
     kit_vspace(0.5f);
 

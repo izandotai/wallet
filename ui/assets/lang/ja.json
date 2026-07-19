@@ -119,6 +119,7 @@
     "vault.detect.none": "認識できません",
     "wallet.preset": "導出方式：",
     "send.err.family": "このウォレットにはこのチェーンファミリーのアイデンティティがありません。",
+    "send.err.btcformat": "このアドレス形式からの送金はまだ対応していません（現在は bc1q のみ）。",
     "vault.kind.ed25519": "Solanaキーウォレット",
     "vault.kind.watch": "ウォッチ専用",
     "wallet.activate": "有効化",

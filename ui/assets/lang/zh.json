@@ -119,6 +119,7 @@
     "vault.detect.none": "无法识别",
     "wallet.preset": "派生方案：",
     "send.err.family": "该钱包没有此链家族的身份，无法从这里发送。",
+    "send.err.btcformat": "该地址格式的花费尚未支持（目前仅支持 bc1q）。",
     "vault.kind.ed25519": "Solana 私钥钱包",
     "vault.kind.watch": "仅观察",
     "wallet.activate": "激活",

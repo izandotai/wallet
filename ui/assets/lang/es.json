@@ -119,6 +119,7 @@
     "vault.detect.none": "No reconocido",
     "wallet.preset": "Derivación:",
     "send.err.family": "Esta cartera no tiene identidad en esta familia de cadenas.",
+    "send.err.btcformat": "Aún no se admite gastar desde este formato de dirección (por ahora solo bc1q).",
     "vault.kind.ed25519": "Cartera de clave Solana",
     "vault.kind.watch": "Solo observación",
     "wallet.activate": "Activar",
