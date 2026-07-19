@@ -125,4 +125,5 @@
     "layout.classic": "クラシック3列",
     "history.title": "履歴",
     "history.empty": "ウォレットを解錠すると取引が表示されます。"
+,    "history.more": "さらに過去を読み込む"
 }

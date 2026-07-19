@@ -302,9 +302,20 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 if (has_ex && !row.token.empty()
                     && kit_menu_item(tr("asset.menu.token.explorer")))
                     kit_open_url((ex->second + "/token/" + row.token).c_str());
+                // "My address" scopes to the row: for a token it opens
+                // MY transfers of THIS token (advanced filter, from+to
+                // is a union — verified against the live API); only
+                // the chain's own coin opens the plain address page.
                 if (has_ex && kit_menu_item(tr("asset.menu.addr.explorer")))
-                    kit_open_url(
-                        (ex->second + "/address/" + m_followed).c_str());
+                    kit_open_url((row.token.empty()
+                            ? ex->second + "/address/" + m_followed
+                            : ex->second
+                                + "/advanced-filter?transaction_types=ERC-20"
+                                  "&token_contract_address_hashes_to_include="
+                                + row.token + "&from_address_hashes_to_include="
+                                + m_followed
+                                + "&to_address_hashes_to_include=" + m_followed)
+                            .c_str());
                 // Removal is offered only for the user's own rows —
                 // the shipped set is config under digest, not a menu
                 // casualty.

@@ -125,4 +125,5 @@
     "layout.classic": "Colonnes classiques",
     "history.title": "Historique",
     "history.empty": "Déverrouillez un portefeuille pour voir ses transactions."
+,    "history.more": "Charger plus ancien"
 }

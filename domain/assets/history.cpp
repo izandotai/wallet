@@ -125,10 +125,11 @@ namespace {
 
     std::string fetch_page(net::HttpsClient& client,
         const chains::ChainSpec& chain, const std::string& action,
-        const std::string& address)
+        const std::string& address, int page)
     {
         const std::string target = "/api?module=account&action=" + action
-            + "&address=" + address + "&sort=desc&page=1&offset=25";
+            + "&address=" + address + "&sort=desc&page=" + std::to_string(page)
+            + "&offset=25";
         const net::HttpResponse res
             = client.get(target, { { "Accept", "application/json" } });
         if (res.status != 200)
@@ -140,37 +141,39 @@ namespace {
 }
 
 std::vector<TxRecord> fetch_history(
-    const chains::ChainSpec& chain, const std::string& address)
+    const chains::ChainSpec& chain, const std::string& address, int page)
 {
     if (chain.history.empty())
         return {};
     const net::HttpsUrl base = net::parse_https_url(chain.history);
     net::HttpsClient client(base.host, base.port);
-    return parse_txlist(fetch_page(client, chain, "txlist", address), address);
+    return parse_txlist(
+        fetch_page(client, chain, "txlist", address, page), address);
 }
 
 std::vector<TxRecord> fetch_token_history(
-    const chains::ChainSpec& chain, const std::string& address)
+    const chains::ChainSpec& chain, const std::string& address, int page)
 {
     if (chain.history.empty())
         return {};
     const net::HttpsUrl base = net::parse_https_url(chain.history);
     net::HttpsClient client(base.host, base.port);
     return parse_tokentx(
-        fetch_page(client, chain, "tokentx", address), address);
+        fetch_page(client, chain, "tokentx", address, page), address);
 }
 
-Ledger fetch_ledger(const chains::ChainSpec& chain, const std::string& address)
+Ledger fetch_ledger(
+    const chains::ChainSpec& chain, const std::string& address, int page)
 {
     Ledger out;
     if (chain.history.empty())
         return out;
     const net::HttpsUrl base = net::parse_https_url(chain.history);
     net::HttpsClient client(base.host, base.port);
-    out.tokens
-        = parse_tokentx(fetch_page(client, chain, "tokentx", address), address);
-    out.native
-        = parse_txlist(fetch_page(client, chain, "txlist", address), address);
+    out.tokens = parse_tokentx(
+        fetch_page(client, chain, "tokentx", address, page), address);
+    out.native = parse_txlist(
+        fetch_page(client, chain, "txlist", address, page), address);
     return out;
 }
 

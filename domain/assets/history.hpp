@@ -37,23 +37,24 @@ std::vector<TxRecord> parse_txlist(
 std::vector<TxRecord> parse_tokentx(
     std::string_view json, std::string_view self);
 
-// One page of history (newest first) from the chain's configured
-// Blockscout instance. A chain without a history base answers empty.
-// Throws on transport or parse failure.
+// One page of history (newest first, 25 per page, page counts from 1)
+// from the chain's configured Blockscout instance. A chain without a
+// history base answers empty. Throws on transport or parse failure.
 std::vector<TxRecord> fetch_history(
-    const chains::ChainSpec& chain, const std::string& address);
+    const chains::ChainSpec& chain, const std::string& address, int page = 1);
 
 // One page of ERC-20 transfers for the same address.
 std::vector<TxRecord> fetch_token_history(
-    const chains::ChainSpec& chain, const std::string& address);
+    const chains::ChainSpec& chain, const std::string& address, int page = 1);
 
-// Both pages over one keep-alive connection — the endpoints share a
-// host, and the callers always want the pair.
+// Both endpoints' page N over one keep-alive connection — they share
+// a host, and the callers always want the pair.
 struct Ledger {
     std::vector<TxRecord> native;
     std::vector<TxRecord> tokens;
 };
 
-Ledger fetch_ledger(const chains::ChainSpec& chain, const std::string& address);
+Ledger fetch_ledger(
+    const chains::ChainSpec& chain, const std::string& address, int page = 1);
 
 }

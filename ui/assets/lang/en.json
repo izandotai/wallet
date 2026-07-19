@@ -125,4 +125,5 @@
     "layout.classic": "Classic columns",
     "history.title": "History",
     "history.empty": "Unlock a wallet to see its transactions."
+,    "history.more": "Load older"
 }

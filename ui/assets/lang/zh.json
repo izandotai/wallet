@@ -125,4 +125,5 @@
     "layout.classic": "经典三栏",
     "history.title": "历史",
     "history.empty": "解锁钱包后显示交易记录。"
+,    "history.more": "加载更早"
 }
