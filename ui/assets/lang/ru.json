@@ -115,7 +115,7 @@
     "vault.detect.watch.sol": "Solana-адрес для наблюдения",
     "vault.detect.none": "Не распознано",
     "wallet.preset": "Схема деривации:",
-    "send.err.family": "Этот кошелёк принимает средства в своей сети; отправка пока доступна только для EVM.",
+    "send.err.family": "У этого кошелька нет личности в этом семействе сетей.",
     "vault.kind.ed25519": "Кошелёк с ключом Solana",
     "vault.kind.watch": "Только наблюдение",
     "wallet.activate": "Активировать",

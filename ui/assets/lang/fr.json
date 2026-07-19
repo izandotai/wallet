@@ -115,7 +115,7 @@
     "vault.detect.watch.sol": "Adresse Solana à surveiller",
     "vault.detect.none": "Non reconnu",
     "wallet.preset": "Dérivation :",
-    "send.err.family": "Ce portefeuille reçoit sur sa propre chaîne ; l'envoi est pour l'instant réservé aux EVM.",
+    "send.err.family": "Ce portefeuille n'a pas d'identité sur cette famille de chaînes.",
     "vault.kind.ed25519": "Portefeuille à clé Solana",
     "vault.kind.watch": "Lecture seule",
     "wallet.activate": "Activer",

@@ -115,7 +115,7 @@
     "vault.detect.watch.sol": "Indirizzo Solana da osservare",
     "vault.detect.none": "Non riconosciuto",
     "wallet.preset": "Derivazione:",
-    "send.err.family": "Questo portafoglio riceve sulla propria catena; l'invio per ora è solo EVM.",
+    "send.err.family": "Questo portafoglio non ha identità su questa famiglia di catene.",
     "vault.kind.ed25519": "Portafoglio a chiave Solana",
     "vault.kind.watch": "Sola osservazione",
     "wallet.activate": "Attiva",

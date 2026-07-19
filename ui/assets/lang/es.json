@@ -115,7 +115,7 @@
     "vault.detect.watch.sol": "Dirección Solana de observación",
     "vault.detect.none": "No reconocido",
     "wallet.preset": "Derivación:",
-    "send.err.family": "Esta cartera recibe en su propia cadena; el envío por ahora es solo EVM.",
+    "send.err.family": "Esta cartera no tiene identidad en esta familia de cadenas.",
     "vault.kind.ed25519": "Cartera de clave Solana",
     "vault.kind.watch": "Solo observación",
     "wallet.activate": "Activar",

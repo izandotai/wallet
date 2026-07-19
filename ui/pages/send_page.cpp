@@ -275,17 +275,29 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     // — the recipient is the irreversible part and leads the form.
     ImGui::SetCursorPosX(left);
     ImGui::SetNextItemWidth(col);
-    // The selected asset's family decides what a valid recipient even
-    // looks like — the validator switches with the menu.
-    const bool sol_asset = chain.family == "sol";
+    // People paste the recipient first, while the asset menu still
+    // shows its default — so the paste gate accepts any family's
+    // address (base58 and 0x-hex share no alphabet), and a Solana
+    // address flips the asset to Solana by itself.
+    bool sol_asset = chain.family == "sol";
     kit_address_field("##send-to", tr("send.to"), m_to.data(), m_to.size(),
         tr("ui.paste"), tr("ui.copy_action"), tr("ui.clear"),
-        [sol_asset](const char* s) {
-            return sol_asset ? sol::valid_address(s)
-                             : !crypto::eth_checksum_address(s).empty();
+        [](const char* s) {
+            return sol::valid_address(s)
+                || !crypto::eth_checksum_address(s).empty();
         });
 
     const bool to_present = m_to[0] != '\0';
+    if (to_present && !sol_asset && sol::valid_address(m_to.data())) {
+        for (int i = 0; i < int(m_assets.size()); ++i)
+            if (m_registry.all()[std::size_t(m_assets[std::size_t(i)].chain)]
+                    .family
+                == "sol") {
+                m_asset_index = i;
+                sol_asset = true;
+                break;
+            }
+    }
     const bool to_valid = to_present
         && (sol_asset ? sol::valid_address(m_to.data())
                       : !crypto::eth_checksum_address(m_to.data()).empty());
