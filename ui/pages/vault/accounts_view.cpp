@@ -145,6 +145,10 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     }
     if (kit_dialog_begin("##qr-view")) {
         if (m_qr_index >= 0 && std::size_t(m_qr_index) < addresses.size()) {
+            // Auto-resize dialogs need constant-width content: pin the
+            // width so a 44-char base58 line and a 42-char hex one
+            // dress the same window.
+            ImGui::Dummy(ImVec2(em * 22.0f, 0.0f));
             // The all-chain switch: one identity, three receiving
             // faces. Chain-family names are technical vocabulary and
             // stay untranslated.

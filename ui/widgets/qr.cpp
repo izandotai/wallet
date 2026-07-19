@@ -28,12 +28,17 @@ void kit_qr(const char* text, float size_em)
         cell = 1.0f;
     const float side = cell * float(n + 2 * quiet);
 
+    // The footprint is the ASKED size, always: a longer payload means
+    // a denser code, never a bigger card — switching between codes of
+    // different versions must not resize the window around them.
     const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const float inset_x = float(int((want - side) / 2));
+    const float inset_y = inset_x;
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(pos, ImVec2(pos.x + side, pos.y + side),
+    draw->AddRectFilled(pos, ImVec2(pos.x + want, pos.y + want),
         IM_COL32(255, 255, 255, 255), cell * 2.0f);
-    const float ox = pos.x + cell * float(quiet);
-    const float oy = pos.y + cell * float(quiet);
+    const float ox = pos.x + inset_x + cell * float(quiet);
+    const float oy = pos.y + inset_y + cell * float(quiet);
     for (int y = 0; y < n; ++y)
         for (int x = 0; x < n; ++x)
             if (cached.getModule(x, y))
@@ -41,7 +46,7 @@ void kit_qr(const char* text, float size_em)
                     ImVec2(ox + cell * float(x), oy + cell * float(y)),
                     ImVec2(ox + cell * float(x + 1), oy + cell * float(y + 1)),
                     IM_COL32(10, 10, 12, 255));
-    ImGui::Dummy(ImVec2(side, side));
+    ImGui::Dummy(ImVec2(want, want));
 }
 
 }
