@@ -96,9 +96,10 @@ TEST_CASE("a Solana keypair decodes to its seed, an address does not")
     bad[40] = bad[40] == 'M' ? 'N' : 'M';
     CHECK(detect_secret(bad).kind == SecretKind::Unrecognized);
 
-    // A Solana ADDRESS is 32 bytes of base58 — never a key.
+    // A Solana ADDRESS is 32 bytes of base58 — never a key; since the
+    // watch era it is a wallet to observe instead.
     CHECK(detect_secret("HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk").kind
-        == SecretKind::Unrecognized);
+        == SecretKind::SolAddress);
 
     // Backup round-trip: seed → base58(seed||pub) → the original text.
     const izan::secure::SecureBytes enc = izan::crypto::sol_key_to_base58(
@@ -111,7 +112,8 @@ TEST_CASE("anything else is refused")
     CHECK(detect_secret("").kind == SecretKind::Unrecognized);
     CHECK(detect_secret("   \n\t ").kind == SecretKind::Unrecognized);
     CHECK(detect_secret("hello world").kind == SecretKind::Unrecognized);
-    // A valid Base58Check string of the wrong shape (a P2PKH address).
+    // A P2PKH address is no secret — since the watch era it reads as
+    // a Bitcoin wallet to observe.
     CHECK(detect_secret("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2").kind
-        == SecretKind::Unrecognized);
+        == SecretKind::BtcAddress);
 }
