@@ -402,9 +402,14 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 row.ok, tr("portfolio.unreadable"), row.fiat.c_str(), true);
             const bool row_spl
                 = rspec && rspec->family == "sol" && !row.token.empty();
+            // The row's token rides along whatever the family — an
+            // ERC-20 contract and an SPL mint both name the asset the
+            // send form should preselect; natives carry the empty
+            // string. (Gating the token on the SPL flag once silenced
+            // every EVM token row: symbol+empty-token matches nothing,
+            // so the click focused the form and selected nothing.)
             if (ev.clicked && row.ok && (row_evm || row_spl) && m_on_send)
-                m_on_send(row.chain_id, row.symbol,
-                    row_spl ? row.token : std::string(), row.decimals);
+                m_on_send(row.chain_id, row.symbol, row.token, row.decimals);
             if (ev.hovered && row.ok && (row_evm || row_spl))
                 kit_tooltip(tr("send.title"));
             if (ev.menu)
@@ -413,8 +418,8 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 if ((row_evm || row_spl)
                     && kit_menu_item(tr("send.title"), nullptr, false, row.ok)
                     && m_on_send)
-                    m_on_send(row.chain_id, row.symbol,
-                        row_spl ? row.token : std::string(), row.decimals);
+                    m_on_send(
+                        row.chain_id, row.symbol, row.token, row.decimals);
                 if (row_evm
                     && kit_menu_item(tr("swap.title"), nullptr, false, row.ok)
                     && m_on_swap)
