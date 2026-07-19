@@ -41,6 +41,17 @@ std::string btc_p2wsh_address(
 // P2SH-P2WSH — the same program nested for legacy senders → "3…".
 std::string btc_p2sh_p2wsh_address(std::span<const uint8_t> witness_script);
 
+// BIP-340 Schnorr, the taproot signature: 64 bytes over a 32-byte
+// message with deterministic-plus-aux nonces. Throws on a zero or
+// out-of-range key. Pinned to the BIP's own test vectors.
+std::array<uint8_t, 64> bip340_sign(std::span<const uint8_t, 32> seckey,
+    std::span<const uint8_t, 32> msg, std::span<const uint8_t, 32> aux);
+
+// The key that actually signs a taproot key-path spend: the private
+// key normalized to its even-Y form, tweaked by TapTweak(P.x) — the
+// same commitment btc_p2tr_address bakes into the output key.
+std::array<uint8_t, 32> bip341_tweak_seckey(std::span<const uint8_t, 32> sk);
+
 std::optional<secure::SecureBytes> wif_to_key(std::string_view wif);
 
 // True iff the text is a Bitcoin mainnet address this wallet can
