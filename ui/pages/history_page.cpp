@@ -263,17 +263,19 @@ void HistoryPage::draw(const i18n::Catalog& tr)
         refresh(mine);
     }
 
-    // The page's identity mark, the same voice as the send page's 📤.
-    kit_vspace(0.8f);
-    {
+    // The page's identity mark, the same voice as the send page's 📤 —
+    // but only above an actual ledger: the empty state already carries
+    // this same glyph, and two of them read as a stutter.
+    if (!m_rows.empty()) {
+        kit_vspace(0.8f);
         ImGui::PushFont(nullptr, kit_snap(em * 2.1f));
         const float w = ImGui::CalcTextSize("🧾").x;
         if (avail > w)
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (avail - w) * 0.5f);
         ImGui::TextUnformatted("🧾");
         ImGui::PopFont();
+        kit_vspace(0.4f);
     }
-    kit_vspace(0.4f);
 
     // Controls on one centered line, same grammar as the assets page.
     kit_vspace(0.25f);
