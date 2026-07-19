@@ -187,7 +187,11 @@ void HistoryPage::draw(const i18n::Catalog& tr)
     const float avail = ImGui::GetContentRegionAvail().x;
     const bool busy = m_job != nullptr;
 
-    const std::string mine = m_vault.followed_address();
+    // The six-chain blockscout ledger is EVM-only; other families
+    // show the empty state until their own ledgers arrive.
+    const std::string mine = m_vault.active_family() == keyd::ChainFamily::Eth
+        ? m_vault.followed_address()
+        : std::string();
     if (mine != m_followed) {
         m_followed = mine;
         m_rows.clear();

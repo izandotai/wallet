@@ -15,6 +15,7 @@
 #include "core/units/decimal.hpp"
 #include "domain/assets/prices.hpp"
 #include "domain/config/config_trust.hpp"
+#include "domain/sol/solana.hpp"
 #include "ui/widgets/kit.hpp"
 
 namespace izan::ui {
@@ -114,30 +115,59 @@ void PortfolioPage::refresh(const std::string& address)
     // until the worker reports back.
     auto reader = m_reader;
     const bool want_prices = ImGui::GetTime() - m_priced_at > 60.0;
-    std::thread([job, reader, address, want_prices, cache = m_prices] {
+    const keyd::ChainFamily family = m_family;
+    std::vector<chains::ChainSpec> sol_chains;
+    for (const chains::ChainSpec& c : m_chains)
+        if (c.family == "sol")
+            sol_chains.push_back(c);
+    std::thread([job, reader, address, want_prices, family,
+                    sol_chains = std::move(sol_chains), cache = m_prices] {
         try {
-            for (const auto& h : reader->snapshot(address)) {
-                Row row;
-                row.chain_id = h.chain_id;
-                row.chain = h.chain;
-                row.symbol = h.symbol;
-                row.token = h.token;
-                row.ok = h.ok;
-                row.testnet = h.testnet;
-                if (h.ok) {
-                    // Fiat math reads the exact figure; the row shows
-                    // the trimmed one — an 18-digit tail bursts rows.
-                    const std::string full
-                        = units::format_units(h.amount, h.decimals);
-                    std::from_chars(
-                        full.data(), full.data() + full.size(), row.approx);
-                    row.amount
-                        = units::format_units_display(h.amount, h.decimals);
-                } else {
-                    row.error = h.error;
-                }
+            // A number lands as a row through one dresser, whatever
+            // engine read it.
+            auto add_row = [&](Row row, const units::U256& amount,
+                               uint8_t decimals) {
+                row.ok = true;
+                const std::string full = units::format_units(amount, decimals);
+                std::from_chars(
+                    full.data(), full.data() + full.size(), row.approx);
+                row.amount = units::format_units_display(amount, decimals);
                 job->rows.push_back(std::move(row));
+            };
+            if (family == keyd::ChainFamily::Sol) {
+                for (const chains::ChainSpec& spec : sol_chains) {
+                    Row row;
+                    row.chain_id = spec.chain_id;
+                    row.chain = spec.name;
+                    row.symbol = spec.symbol;
+                    row.testnet = spec.testnet;
+                    try {
+                        chains::RpcClient rpc(spec);
+                        add_row(row, sol::native_balance(rpc, address),
+                            spec.decimals);
+                    } catch (const std::exception& e) {
+                        row.error = e.what();
+                        job->rows.push_back(std::move(row));
+                    }
+                }
+            } else if (family == keyd::ChainFamily::Eth) {
+                for (const auto& h : reader->snapshot(address)) {
+                    Row row;
+                    row.chain_id = h.chain_id;
+                    row.chain = h.chain;
+                    row.symbol = h.symbol;
+                    row.token = h.token;
+                    row.testnet = h.testnet;
+                    if (h.ok) {
+                        add_row(std::move(row), h.amount, h.decimals);
+                    } else {
+                        row.error = h.error;
+                        job->rows.push_back(std::move(row));
+                    }
+                }
             }
+            // Btc: no balance engine yet — an honest empty page beats
+            // a wrong probe (B1c brings esplora).
             // Per-row fiat is garnish over the on-chain numbers: a
             // price feed failure leaves the dollar column empty and
             // says nothing. Testnet rows never get a figure — test
@@ -229,10 +259,14 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
     }
 
     // Follow the vault: the active account's holdings, unasked —
-    // watch-only wallets included; reading needs no keys.
+    // watch-only wallets included; reading needs no keys. The family
+    // travels with the address: a Solana wallet must never be probed
+    // with eth_calls, nor the reverse.
     const std::string mine = m_vault.followed_address();
-    if (mine != m_followed) {
+    const keyd::ChainFamily fam = m_vault.active_family();
+    if (mine != m_followed || fam != m_family) {
         m_followed = mine;
+        m_family = fam;
         m_rows.clear();
         m_status.clear();
         m_fetched_at = 0.0;
@@ -288,21 +322,30 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
             if (i)
                 kit_hairline();
             const std::string id = row.chain + "/" + row.symbol;
+            // The row's verbs follow its family: send/swap/tokens are
+            // EVM engines; a Solana row offers reading only.
+            const chains::ChainSpec* rspec = nullptr;
+            for (const chains::ChainSpec& c : m_chains)
+                if (c.chain_id == row.chain_id)
+                    rspec = &c;
+            const bool row_evm = rspec && rspec->is_evm();
             ImGui::PushID(int(i));
             const AssetRowEvent ev = kit_asset_row(id.c_str(),
                 row.symbol.c_str(), row.chain.c_str(), row.amount.c_str(),
                 row.ok, tr("portfolio.unreadable"), row.fiat.c_str(), true);
-            if (ev.clicked && row.ok && m_on_send)
+            if (ev.clicked && row.ok && row_evm && m_on_send)
                 m_on_send(row.chain_id, row.symbol);
-            if (ev.hovered && row.ok)
+            if (ev.hovered && row.ok && row_evm)
                 kit_tooltip(tr("send.title"));
             if (ev.menu)
                 ImGui::OpenPopup("##asset-menu");
             if (kit_menu_begin("##asset-menu")) {
-                if (kit_menu_item(tr("send.title"), nullptr, false, row.ok)
+                if (row_evm
+                    && kit_menu_item(tr("send.title"), nullptr, false, row.ok)
                     && m_on_send)
                     m_on_send(row.chain_id, row.symbol);
-                if (kit_menu_item(tr("swap.title"), nullptr, false, row.ok)
+                if (row_evm
+                    && kit_menu_item(tr("swap.title"), nullptr, false, row.ok)
                     && m_on_swap)
                     m_on_swap(row.chain_id, row.symbol);
                 if (!row.token.empty()
@@ -325,11 +368,16 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 // ?a= still lands on the token page, nothing breaks.
                 // Only the chain's own coin opens the plain address
                 // page.
+                // Each family's explorer speaks its own path dialect:
+                // solscan says /account/, the scan family /address/.
+                const char* addr_path = rspec && rspec->family == "sol"
+                    ? "/account/"
+                    : "/address/";
                 if (has_ex && kit_menu_item(tr("asset.menu.addr.explorer")))
-                    kit_open_url((row.token.empty()
-                            ? ex->second + "/address/" + m_followed
-                            : ex->second + "/token/" + row.token
-                                + "?a=" + m_followed)
+                    kit_open_url(
+                        (row.token.empty() ? ex->second + addr_path + m_followed
+                                           : ex->second + "/token/" + row.token
+                                    + "?a=" + m_followed)
                             .c_str());
                 // Removal is offered only for the user's own rows —
                 // the shipped set is config under digest, not a menu

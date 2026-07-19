@@ -16,6 +16,7 @@
 #include "core/units/decimal.hpp"
 #include "domain/assets/balances.hpp"
 #include "domain/chains/rpc_client.hpp"
+#include "domain/sol/solana.hpp"
 #include "keyd/signer.hpp"
 #include "ui/shell/ime.hpp"
 #include "ui/wallet/import_model.hpp"
@@ -289,10 +290,9 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
 
 void VaultPage::fetch_balances(int only_index)
 {
-    // EVM wallets only for now; the other families get their balance
-    // readers with their own engines.
-    if (keyd::preset_family(keyd::DerivePreset(m_meta.preset))
-        != keyd::ChainFamily::Eth)
+    // EVM and Solana wallets; Bitcoin joins with its esplora reader.
+    const keyd::ChainFamily fam = active_family();
+    if (fam == keyd::ChainFamily::Btc)
         return;
     if (m_bal_job)
         return; // single driver: one balance worker at a time
@@ -310,7 +310,7 @@ void VaultPage::fetch_balances(int only_index)
     auto job = std::make_shared<BalanceJob>();
     job->index = only_index;
     m_bal_job = job;
-    std::thread([job, addrs = std::move(addrs),
+    std::thread([job, addrs = std::move(addrs), fam,
                     chains_path = m_data_dir / "chains.json"]() {
         try {
             std::ifstream f(chains_path, std::ios::binary);
@@ -318,22 +318,25 @@ void VaultPage::fetch_balances(int only_index)
             ss << f.rdbuf();
             const chains::ChainRegistry registry
                 = chains::ChainRegistry::from_json(ss.str());
-            // the account line prices in the first EVM chain; other
-            // families get their own balance engines
-            const chains::ChainSpec* evm0 = nullptr;
+            // The account line prices in the wallet family's first
+            // chain — ETH for EVM books, SOL for Solana ones.
+            const bool sol = fam == keyd::ChainFamily::Sol;
+            const chains::ChainSpec* home = nullptr;
             for (const chains::ChainSpec& c : registry.all())
-                if (c.is_evm()) {
-                    evm0 = &c;
+                if (sol ? c.family == "sol" : c.is_evm()) {
+                    home = &c;
                     break;
                 }
-            if (!evm0)
-                throw std::runtime_error("no evm chain configured");
-            const chains::ChainSpec& spec = *evm0;
+            if (!home)
+                throw std::runtime_error("no chain for this family");
+            const chains::ChainSpec& spec = *home;
             chains::RpcClient rpc(spec);
             for (const std::string& addr : addrs) {
                 std::string line;
                 try {
-                    const units::U256 wei = assets::native_balance(rpc, addr);
+                    const units::U256 wei = sol
+                        ? sol::native_balance(rpc, addr)
+                        : assets::native_balance(rpc, addr);
                     line = units::format_units(wei, spec.decimals);
                     // Four decimals is garnish enough for a sidebar.
                     const auto dot = line.find('.');

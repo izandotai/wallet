@@ -10,6 +10,7 @@
 
 #include "core/secure/secure_bytes.hpp"
 #include "keyd/client.hpp"
+#include "keyd/signer.hpp"
 #include "ui/i18n/catalog.hpp"
 #include "ui/pages/vault/accounts_view.hpp"
 #include "ui/pages/vault/create_view.hpp"
@@ -101,6 +102,16 @@ public:
     uint8_t active_preset() const
     {
         return m_meta.preset;
+    }
+
+    // The chain family the active addresses live on — the read-only
+    // pages route their balance and ledger engines by this. Watch
+    // wallets are EVM addresses (the only kind the import accepts).
+    keyd::ChainFamily active_family() const
+    {
+        if (m_mode == Mode::Watch)
+            return keyd::ChainFamily::Eth;
+        return keyd::preset_family(keyd::DerivePreset(m_meta.preset));
     }
 
     // The live trust-plane handle, for pages that submit and approve

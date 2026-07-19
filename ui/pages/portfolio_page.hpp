@@ -112,7 +112,10 @@ private:
     // the shipped set lives under the config digest and stays.
     std::vector<std::pair<uint64_t, std::string>> m_user_tokens;
     VaultPage& m_vault;
-    std::string m_followed;    // the address the shown rows belong to
+    std::string m_followed; // the address the shown rows belong to
+    // Which balance engine the followed address needs — EVM reader,
+    // Solana RPC, or (later) esplora. Rides every refresh.
+    keyd::ChainFamily m_family = keyd::ChainFamily::Eth;
     double m_fetched_at = 0.0; // frame clock at the last snapshot
     // Last known USD prices by coingecko id. The feed is rate-limited
     // and moody; a refresh that cannot price reuses these instead of
