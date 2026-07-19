@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "domain/assets/balances.hpp"
@@ -79,7 +80,7 @@ private:
         std::vector<Row> rows;
         // The prices the fiat column was written with; priced = a
         // fresh fetch succeeded and the page's cache should adopt it.
-        std::map<std::string, double> prices;
+        std::unordered_map<std::string, double> prices;
         bool priced = false;
     };
 
@@ -117,7 +118,7 @@ private:
     // and moody; a refresh that cannot price reuses these instead of
     // blanking the dollar column, and fetches are spaced a minute
     // apart out of politeness.
-    std::map<std::string, double> m_prices;
+    std::unordered_map<std::string, double> m_prices;
     double m_priced_at = -1.0e9;
     std::vector<Row> m_rows;
     std::function<void(uint64_t, const std::string&)> m_on_send;
