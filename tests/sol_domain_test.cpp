@@ -130,7 +130,6 @@ TEST_CASE("a transfer message survives the round trip and nothing else passes")
     CHECK(back.lamports == 12345678);
     CHECK(back.blockhash == hash);
 
-    CHECK_THROWS(izan::sol::encode_transfer_message(alice, alice, 1, hash));
     CHECK_THROWS(izan::sol::encode_transfer_message(alice, bob, 0, hash));
     CHECK_THROWS(izan::sol::encode_transfer_message("junk", bob, 1, hash));
 
@@ -300,4 +299,30 @@ TEST_CASE("a devnet transfer survives the real chain"
     CHECK(izan::sol::native_balance(rpc, receiver).to_dec()
         == std::to_string(lamports));
     MESSAGE("devnet transfer confirmed: ", tx_sig);
+}
+
+TEST_CASE("a self-transfer wears the two-key shape and reads back whole")
+{
+    const char* me = "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk";
+    std::array<uint8_t, 32> hash {};
+    hash.fill(0x22);
+    const auto msg = izan::sol::encode_transfer_message(me, me, 7777, hash);
+    // 3 header + 1 count + 64 keys + 32 hash + 1 + 1 + 1 + 2 + 1 + 12.
+    CHECK(msg.size() == 118);
+    const auto back = izan::sol::parse_transfer_message(msg);
+    CHECK(back.from == me);
+    CHECK(back.to == me);
+    CHECK(back.lamports == 7777);
+
+    // The whitelist holds for this shape too: wrong program index,
+    // wrong account refs, foreign program bytes — all refused.
+    auto tamper = [&](std::size_t at, uint8_t v) {
+        auto bad = msg;
+        bad[at] = v;
+        return bad;
+    };
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(3, 4)));
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(38, 1)));  // program
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(101, 2))); // idx
+    CHECK_THROWS(izan::sol::parse_transfer_message(tamper(104, 1))); // refs
 }

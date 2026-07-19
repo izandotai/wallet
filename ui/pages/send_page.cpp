@@ -490,11 +490,6 @@ void SendPage::begin_sol_review()
         return;
     }
     m_from = *from;
-    if (m_from == m_to_checked) {
-        m_status = "send.err.address";
-        m_status_is_key = true;
-        return;
-    }
     auto job = std::make_shared<Job>();
     m_job = job;
     m_stage = Stage::Quoting;
@@ -532,14 +527,19 @@ void SendPage::confirm_sol_send()
         m_status_is_key = false;
         return;
     }
-    const uint64_t left = m_sol_balance - m_sol_lamports - kFeeLamports;
+    // A self-transfer's money comes home; only the fee leaves, so
+    // the remainder rules judge balance minus fee alone.
+    const bool self = m_from == m_to_checked;
+    const uint64_t left = self
+        ? m_sol_balance - kFeeLamports
+        : m_sol_balance - m_sol_lamports - kFeeLamports;
     if (left != 0 && left < m_sol_rent) {
         m_status = "remainder would fall below the rent floor; "
                    "send less, or everything";
         m_status_is_key = false;
         return;
     }
-    if (m_sol_to_balance == 0 && m_sol_lamports < m_sol_rent) {
+    if (!self && m_sol_to_balance == 0 && m_sol_lamports < m_sol_rent) {
         m_status = "recipient is a fresh account; the amount must cover "
                    "its rent floor";
         m_status_is_key = false;

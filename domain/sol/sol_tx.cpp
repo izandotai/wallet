@@ -75,28 +75,32 @@ std::vector<uint8_t> encode_transfer_message(std::string_view from,
     std::string_view to, uint64_t lamports,
     std::span<const uint8_t, 32> blockhash)
 {
-    if (from == to)
-        throw std::invalid_argument("sol-tx: from and to are the same");
     if (lamports == 0)
         throw std::invalid_argument("sol-tx: zero lamports");
     const auto from_pk = decode_address(from);
     const auto to_pk = decode_address(to);
+    // A self-transfer is legal money (the cheapest real-coin test
+    // there is), but an account may sit on the key table only once —
+    // so it wears the two-key shape, the instruction naming the same
+    // index twice.
+    const bool self = from == to;
     std::vector<uint8_t> out;
     // Header: 1 signature required, 0 read-only signed, 1 read-only
     // unsigned (the system program).
     out.push_back(1);
     out.push_back(0);
     out.push_back(1);
-    put_compact_u16(out, 3);
+    put_compact_u16(out, self ? 2 : 3);
     out.insert(out.end(), from_pk.begin(), from_pk.end());
-    out.insert(out.end(), to_pk.begin(), to_pk.end());
+    if (!self)
+        out.insert(out.end(), to_pk.begin(), to_pk.end());
     out.insert(out.end(), 32, 0); // system program: 32 zero bytes
     out.insert(out.end(), blockhash.begin(), blockhash.end());
     put_compact_u16(out, 1);      // one instruction
-    out.push_back(2);             // program index: the system program
-    put_compact_u16(out, 2);      // two accounts
+    out.push_back(self ? 1 : 2);  // program index into the key table
+    put_compact_u16(out, 2);      // two account references
     out.push_back(0);
-    out.push_back(1);
+    out.push_back(self ? 0 : 1);
     put_compact_u16(out, 12);     // 4 tag + 8 lamports
     put_u32le(out, 2);            // SystemInstruction::Transfer
     put_u64le(out, lamports);
@@ -116,11 +120,13 @@ SolTransfer parse_transfer_message(std::span<const uint8_t> message)
     const uint8_t* header = take(3);
     if (header[0] != 1 || header[1] != 0 || header[2] != 1)
         throw std::runtime_error("sol-tx: not a single-signer transfer");
-    if (take_compact_u16(message, pos) != 3)
+    const uint16_t keys = take_compact_u16(message, pos);
+    if (keys != 2 && keys != 3)
         throw std::runtime_error("sol-tx: stowaway accounts");
+    const bool self = keys == 2; // the self-transfer shape
     SolTransfer out;
     const uint8_t* from_pk = take(32);
-    const uint8_t* to_pk = take(32);
+    const uint8_t* to_pk = self ? from_pk : take(32);
     const uint8_t* program = take(32);
     for (int i = 0; i < 32; ++i)
         if (program[i] != 0)
@@ -129,12 +135,12 @@ SolTransfer parse_transfer_message(std::span<const uint8_t> message)
     std::memcpy(out.blockhash.data(), hash, 32);
     if (take_compact_u16(message, pos) != 1)
         throw std::runtime_error("sol-tx: expected exactly one instruction");
-    if (*take(1) != 2)
+    if (*take(1) != (self ? 1 : 2))
         throw std::runtime_error("sol-tx: instruction on a foreign program");
     if (take_compact_u16(message, pos) != 2)
         throw std::runtime_error("sol-tx: wrong account count");
     const uint8_t* accts = take(2);
-    if (accts[0] != 0 || accts[1] != 1)
+    if (accts[0] != 0 || accts[1] != (self ? 0 : 1))
         throw std::runtime_error("sol-tx: wrong account order");
     if (take_compact_u16(message, pos) != 12)
         throw std::runtime_error("sol-tx: wrong data length");
