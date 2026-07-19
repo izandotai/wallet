@@ -69,4 +69,14 @@ out and a static build loads no engines or providers).
 
 ## License
 
-MIT
+GPL-3.0-only. Copyright (c) 2026 izan.ai.
+
+Izan is free software: you can use, study, share and improve it under
+the terms of the GNU General Public License version 3 (see LICENSE).
+Distributing modified versions requires publishing your changes under
+the same license.
+
+Commercial licensing (for embedding Izan in proprietary products) is
+available separately — contact izan.ai. To keep dual licensing
+possible, external contributions are accepted only with a copyright
+assignment / CLA.
