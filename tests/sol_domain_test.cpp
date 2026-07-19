@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 
+#include "core/crypto/sol.hpp"
 #include "domain/chains/chain_spec.hpp"
 #include "domain/sol/sol_tx.hpp"
 #include "domain/sol/solana.hpp"
@@ -153,4 +154,41 @@ TEST_CASE("a transfer message survives the round trip and nothing else passes")
     CHECK(tx.size() == 1 + 64 + msg.size());
     CHECK(tx[0] == 1);
     CHECK(tx[1] == 0xAA);
+}
+
+TEST_CASE("ed25519 signing matches RFC 8032 and its own public key")
+{
+    auto unhex = [](const char* h) {
+        std::vector<uint8_t> out;
+        for (const char* p = h; p[0] && p[1]; p += 2) {
+            auto nib = [](char c) {
+                return uint8_t(c <= '9' ? c - '0' : c - 'a' + 10);
+            };
+            out.push_back(uint8_t(nib(p[0]) << 4 | nib(p[1])));
+        }
+        return out;
+    };
+    // RFC 8032 §7.1 TEST 1: the empty message.
+    std::array<uint8_t, 32> seed1 {};
+    const auto s1 = unhex("9d61b19deffd5a60ba844af492ec2cc4"
+                          "4449c5697b326919703bac031cae7f60");
+    std::copy(s1.begin(), s1.end(), seed1.begin());
+    const auto sig1 = izan::crypto::sol_sign(seed1, {});
+    CHECK(std::vector<uint8_t>(sig1.begin(), sig1.end())
+        == unhex("e5564300c360ac729086e2cc806e828a"
+                 "84877f1eb8e5d974d873e06522490155"
+                 "5fb8821590a33bacc61e39701cf9b46b"
+                 "d25bf5f0595bbe24655141438e7a100b"));
+    // TEST 2: the one-byte message 0x72.
+    std::array<uint8_t, 32> seed2 {};
+    const auto s2 = unhex("4ccd089b28ff96da9db6c346ec114e0f"
+                          "5b8a319f35aba624da8cf6ed4fb8a6fb");
+    std::copy(s2.begin(), s2.end(), seed2.begin());
+    const uint8_t msg2[] = { 0x72 };
+    const auto sig2 = izan::crypto::sol_sign(seed2, msg2);
+    CHECK(std::vector<uint8_t>(sig2.begin(), sig2.end())
+        == unhex("92a009a9f0d4cab8720e820b5f642540"
+                 "a2b27b5416503f8fb3762223ebdb69da"
+                 "085ac1e43e15996e458f3613d0f11d8c"
+                 "387b2eaeb4302aeeb00d291612bb0c00"));
 }

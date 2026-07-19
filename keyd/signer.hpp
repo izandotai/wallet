@@ -95,6 +95,25 @@ SignedDigest sign_payload(const vault::Wallet& wallet,
     std::span<const uint8_t> tx, uint32_t account = 0,
     DerivePreset preset = DerivePreset::MetaMask);
 
+// ed25519 signs the WHOLE message (RFC 8032, no pre-hash) — a
+// different act than the keccak-digest flow above, so it wears its
+// own shape rather than moonlighting in SignedDigest. The digest is
+// sha256(message): the audit anchor, never what gets signed.
+struct SolSignedMessage {
+    std::array<uint8_t, 64> sig {};
+    std::array<uint8_t, 32> digest {};
+    std::string signer; // base58 public key
+};
+
+// The Solana twin of sign_payload: wallet + account under a Solana
+// preset → ed25519 signature over exactly the bytes given. Every
+// intermediate is wiped before return. Throws on a non-Solana preset,
+// an empty message, a secp256k1 key (curves never moonlight), or a
+// wallet with nothing to sign with.
+SolSignedMessage sign_sol_payload(const vault::Wallet& wallet,
+    std::span<const uint8_t> message, uint32_t account = 0,
+    DerivePreset preset = DerivePreset::SolPhantom);
+
 // The account's address — the same key selection as sign_payload,
 // stopping at the public half; formatted for the preset's chain.
 std::string account_address(const vault::Wallet& wallet, uint32_t account = 0,

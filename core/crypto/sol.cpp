@@ -121,3 +121,15 @@ bool valid_sol_address(std::string_view text)
 }
 
 }
+
+namespace izan::crypto {
+
+std::array<uint8_t, 64> sol_sign(
+    std::span<const uint8_t, 32> seed, std::span<const uint8_t> message)
+{
+    std::array<uint8_t, 64> sig {};
+    ed25519_sign(message.data(), message.size(), seed.data(), sig.data());
+    return sig;
+}
+
+}

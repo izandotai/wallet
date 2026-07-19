@@ -237,6 +237,44 @@ SignedDigest sign_payload(const vault::Wallet& wallet,
     return out;
 }
 
+SolSignedMessage sign_sol_payload(const vault::Wallet& wallet,
+    std::span<const uint8_t> message, uint32_t account, DerivePreset preset)
+{
+    if (preset_family(preset) != ChainFamily::Sol)
+        throw std::invalid_argument("signer: not a solana preset");
+    if (message.empty())
+        throw std::invalid_argument("signer: nothing to sign");
+    std::array<uint8_t, 32> key {};
+    if (!wallet.entropy.empty()) {
+        crypto::Seed seed = entropy_seed(wallet.entropy);
+        const std::optional<crypto::SolKey> derived
+            = crypto::sol_derive(seed, derive_path(preset, account));
+        sodium_memzero(seed.data(), seed.size());
+        if (!derived)
+            throw std::runtime_error("signer: account underivable");
+        key = derived->private_key;
+    } else if (!wallet.imported.empty()) {
+        if (account != 0)
+            throw std::invalid_argument(
+                "signer: a key wallet has a single address");
+        if (!holds_ed25519(wallet))
+            throw std::invalid_argument(
+                "signer: a secp256k1 key cannot sign solana transactions");
+        const secure::SecureBytes& raw = wallet.imported.front().key;
+        if (raw.size() != 32)
+            throw std::runtime_error("signer: malformed imported key");
+        std::memcpy(key.data(), raw.data(), 32);
+    } else {
+        throw std::invalid_argument("signer: wallet holds no signing key");
+    }
+    SolSignedMessage out;
+    out.sig = crypto::sol_sign(key, message);
+    out.signer = crypto::sol_key_address(key);
+    sodium_memzero(key.data(), key.size());
+    crypto_hash_sha256(out.digest.data(), message.data(), message.size());
+    return out;
+}
+
 std::string account_address(
     const vault::Wallet& wallet, uint32_t account, DerivePreset preset)
 {

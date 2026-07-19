@@ -45,6 +45,11 @@ std::optional<secure::SecureBytes> sol_key_from_base58(std::string_view text);
 // in guarded memory.
 secure::SecureBytes sol_key_to_base58(std::span<const uint8_t, 32> seed);
 
+// RFC 8032 ed25519 signature over the WHOLE message with the 32-byte
+// seed — Solana signs raw transaction messages, never a pre-hash.
+std::array<uint8_t, 64> sol_sign(
+    std::span<const uint8_t, 32> seed, std::span<const uint8_t> message);
+
 // True iff the text decodes as base58 to exactly 32 bytes — a Solana
 // account address. Pure; no network.
 bool valid_sol_address(std::string_view text);
