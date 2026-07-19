@@ -15,6 +15,7 @@
 #include "core/codec/abi.hpp"
 #include "core/crypto/eth.hpp"
 #include "core/units/decimal.hpp"
+#include "domain/btc/btc_tx.hpp"
 #include "domain/chains/rpc_client.hpp"
 #include "domain/sol/sol_tx.hpp"
 #include "domain/sol/solana.hpp"
@@ -121,8 +122,12 @@ SendPage::SendPage(const std::filesystem::path& data_dir,
             m_assets.push_back({ i, chain.symbol, "", chain.decimals });
             continue;
         }
+        if (chain.family == "btc") {
+            m_assets.push_back({ i, chain.symbol, "", chain.decimals });
+            continue;
+        }
         if (!chain.is_evm())
-            continue; // BTC has no send engine yet
+            continue;
         m_assets.push_back({ i, chain.symbol, "", chain.decimals });
         for (const assets::TokenSpec* token : tokens.tokens_for(chain.chain_id))
             m_assets.push_back(
@@ -160,6 +165,11 @@ void SendPage::reset_to_form()
     m_sol_send = false;
     m_sol_lamports = 0;
     m_sol_msg.clear();
+    m_btc_send = false;
+    m_btc_amount = 0;
+    m_btc_sel = {};
+    m_btc_sel_err.clear();
+    m_tx_hash_expect.clear();
     m_proposal = 0;
     m_status.clear();
     m_stage = Stage::Form;
@@ -191,6 +201,11 @@ void SendPage::poll_job()
             m_sol_balance = m_job->balance;
             m_sol_to_balance = m_job->to_balance;
             m_sol_rent = m_job->rent;
+            if (m_btc_send) {
+                m_btc_utxos = std::move(m_job->utxos);
+                m_btc_tiers = m_job->tiers;
+                btc_reselect();
+            }
             m_stage = Stage::Review;
             m_focus_pass = true;
             m_job.reset();
@@ -280,27 +295,36 @@ void SendPage::draw_form(const i18n::Catalog& tr)
     // address (base58 and 0x-hex share no alphabet), and a Solana
     // address flips the asset to Solana by itself.
     bool sol_asset = chain.family == "sol";
+    bool btc_asset = chain.family == "btc";
     kit_address_field("##send-to", tr("send.to"), m_to.data(), m_to.size(),
         tr("ui.paste"), tr("ui.copy_action"), tr("ui.clear"),
         [](const char* s) {
-            return sol::valid_address(s)
+            return sol::valid_address(s) || btc::valid_address(s)
                 || !crypto::eth_checksum_address(s).empty();
         });
 
     const bool to_present = m_to[0] != '\0';
-    if (to_present && !sol_asset && sol::valid_address(m_to.data())) {
+    // A pasted address knows its own family (the three alphabets are
+    // disjoint) and flips the asset itself.
+    auto flip_to_family = [&](const char* fam, bool& flag) {
         for (int i = 0; i < int(m_assets.size()); ++i)
             if (m_registry.all()[std::size_t(m_assets[std::size_t(i)].chain)]
                     .family
-                == "sol") {
+                == fam) {
                 m_asset_index = i;
-                sol_asset = true;
+                flag = true;
                 break;
             }
-    }
+    };
+    if (to_present && !sol_asset && sol::valid_address(m_to.data()))
+        flip_to_family("sol", sol_asset);
+    else if (to_present && !btc_asset && btc::valid_address(m_to.data()))
+        flip_to_family("btc", btc_asset);
     const bool to_valid = to_present
         && (sol_asset ? sol::valid_address(m_to.data())
-                      : !crypto::eth_checksum_address(m_to.data()).empty());
+                : btc_asset
+                ? btc::valid_address(m_to.data())
+                : !crypto::eth_checksum_address(m_to.data()).empty());
     if (to_present && !to_valid)
         centered_caption(tr("send.err.address"));
 
@@ -343,11 +367,16 @@ void SendPage::draw_form(const i18n::Catalog& tr)
 
     const bool unlocked = m_vault.unlocked() && m_vault.keyd() != nullptr;
     // The wallet must have a self on the asset's family: an all-chain
-    // seed has all of them, a key wallet only its curve's. BTC assets
-    // never reach this menu (no engine yet).
-    const std::string sender
-        = m_vault.family_address(sol_asset ? "sol" : "evm");
-    const bool can_send = !sender.empty();
+    // seed has all of them, a key wallet only its curve's. Bitcoin
+    // additionally requires the native-segwit costume — the one script
+    // the signer can witness (v1).
+    const std::string sender = m_vault.family_address(sol_asset ? "sol"
+            : btc_asset                                         ? "btc"
+                                                                : "evm");
+    const bool can_send = !sender.empty()
+        && (!btc_asset
+            || m_vault.family_preset_value("btc")
+                == uint8_t(keyd::DerivePreset::BtcSegwit));
     if (unlocked && !sender.empty()) {
         ImGui::PushFont(nullptr, kit_caption_size());
         const std::string who = m_vault.active_name() + " · "
@@ -387,8 +416,13 @@ void SendPage::begin_review()
     m_status.clear();
     const Asset& asset = selected_asset();
     m_sol_send = selected_chain().family == "sol";
+    m_btc_send = selected_chain().family == "btc";
     if (m_sol_send) {
         begin_sol_review();
+        return;
+    }
+    if (m_btc_send) {
+        begin_btc_review();
         return;
     }
     m_to_checked = crypto::eth_checksum_address(m_to.data());
@@ -530,9 +564,8 @@ void SendPage::confirm_sol_send()
     // A self-transfer's money comes home; only the fee leaves, so
     // the remainder rules judge balance minus fee alone.
     const bool self = m_from == m_to_checked;
-    const uint64_t left = self
-        ? m_sol_balance - kFeeLamports
-        : m_sol_balance - m_sol_lamports - kFeeLamports;
+    const uint64_t left = self ? m_sol_balance - kFeeLamports
+                               : m_sol_balance - m_sol_lamports - kFeeLamports;
     if (left != 0 && left < m_sol_rent) {
         m_status = "remainder would fall below the rent floor; "
                    "send less, or everything";
@@ -611,6 +644,173 @@ void SendPage::confirm_sol_send()
     }).detach();
 }
 
+void SendPage::btc_reselect()
+{
+    // A tier change reprices the whole selection; a new proposal will
+    // be built from whatever stands when the human confirms.
+    const uint64_t rate = m_btc_tier == 0 ? m_btc_tiers.fast
+        : m_btc_tier == 2                 ? m_btc_tiers.slow
+                                          : m_btc_tiers.normal;
+    m_btc_sel = {};
+    m_btc_sel_err.clear();
+    m_proposal = 0;
+    m_tx_hash_expect.clear();
+    try {
+        m_btc_sel = btc::select_coins(m_btc_utxos, m_btc_amount, rate);
+    } catch (const std::exception& e) {
+        m_btc_sel_err = e.what();
+    }
+}
+
+void SendPage::begin_btc_review()
+{
+    const Asset& asset = selected_asset();
+    std::string to(m_to.data());
+    while (!to.empty() && (to.back() == ' ' || to.back() == '\n'))
+        to.pop_back();
+    m_to_checked = to;
+    try {
+        const units::U256 amount
+            = units::parse_units(m_amount.data(), asset.decimals);
+        const std::string dec = amount.to_dec();
+        m_btc_amount = 0;
+        const auto res = std::from_chars(
+            dec.data(), dec.data() + dec.size(), m_btc_amount);
+        if (res.ec != std::errc() || res.ptr != dec.data() + dec.size()
+            || m_btc_amount < btc::kDustSats)
+            throw std::invalid_argument("amount");
+        m_amount_label
+            = units::format_units(amount, asset.decimals) + " " + asset.symbol;
+        m_token_send = false;
+    } catch (const std::exception&) {
+        m_status = "send.err.amount";
+        m_status_is_key = true;
+        return;
+    }
+    m_account = m_vault.active_account();
+    m_preset = m_vault.family_preset_value("btc");
+    auto from = m_vault.keyd()->address(m_account, m_preset);
+    if (!from) {
+        m_status = m_vault.keyd()->last_error();
+        m_status_is_key = false;
+        return;
+    }
+    m_from = *from;
+    auto job = std::make_shared<Job>();
+    m_job = job;
+    m_stage = Stage::Quoting;
+    kit_dialog_open("##send-confirm");
+    std::thread([job, spec = selected_chain(), from = m_from]() mutable {
+        try {
+            job->utxos = btc::fetch_utxos(spec, from);
+            job->tiers = btc::fee_tiers(spec);
+            job->phase.store(1);
+        } catch (const std::exception& e) {
+            job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            job->error = "worker failed";
+            job->phase.store(2);
+        }
+    }).detach();
+}
+
+void SendPage::confirm_btc_send()
+{
+    if (!m_btc_sel_err.empty() || m_btc_sel.inputs.empty()) {
+        m_status = m_btc_sel_err.empty() ? "no coins selected" : m_btc_sel_err;
+        m_status_is_key = false;
+        return;
+    }
+    if (m_proposal == 0) {
+        // The plan: picked coins in, the recipient, and — when there
+        // is change — our own address to bring it home.
+        btc::TxPlan plan;
+        std::vector<uint8_t> values;
+        try {
+            for (const btc::Utxo& u : m_btc_sel.inputs) {
+                btc::TxPlan::In in;
+                if (u.txid.size() != 64)
+                    throw std::invalid_argument("btc: malformed txid");
+                for (int i = 0; i < 32; ++i) {
+                    auto nib = [](char c) {
+                        return uint8_t(c <= '9' ? c - '0' : c - 'a' + 10);
+                    };
+                    in.txid_be[std::size_t(i)]
+                        = uint8_t(nib(u.txid[std::size_t(2 * i)]) << 4
+                            | nib(u.txid[std::size_t(2 * i + 1)]));
+                }
+                in.vout = u.vout;
+                plan.inputs.push_back(in);
+                for (int b = 0; b < 8; ++b)
+                    values.push_back(uint8_t(u.value >> (8 * b)));
+            }
+            btc::TxPlan::Out pay;
+            pay.value = m_btc_amount;
+            pay.script = btc::script_for_address(m_to_checked);
+            plan.outputs.push_back(std::move(pay));
+            if (m_btc_sel.change > 0) {
+                btc::TxPlan::Out change;
+                change.value = m_btc_sel.change;
+                change.script = btc::script_for_address(m_from);
+                plan.outputs.push_back(std::move(change));
+            }
+        } catch (const std::exception& e) {
+            m_status = e.what();
+            m_status_is_key = false;
+            return;
+        }
+        const auto skel = btc::encode_skeleton(plan);
+        std::vector<uint8_t> payload(4);
+        payload[0] = uint8_t(skel.size());
+        payload[1] = uint8_t(skel.size() >> 8);
+        payload[2] = uint8_t(skel.size() >> 16);
+        payload[3] = uint8_t(skel.size() >> 24);
+        payload.insert(payload.end(), skel.begin(), skel.end());
+        payload.insert(payload.end(), values.begin(), values.end());
+        auto id = m_vault.keyd()->submit_ui(keyd::make_envelope(
+            keyd::DerivePreset(m_preset), m_account, payload));
+        if (!id) {
+            m_status = m_vault.keyd()->last_error();
+            m_status_is_key = false;
+            return;
+        }
+        m_proposal = *id;
+        // The reviewed txid, computed before any signature exists —
+        // the broadcast leg must see the node echo exactly this.
+        m_tx_hash_expect = btc::txid_of(plan);
+    }
+    SecureBytes pass = take_secret(m_pass);
+    auto job = std::make_shared<Job>();
+    m_job = job;
+    m_stage = Stage::Delivering;
+    m_status.clear();
+    std::thread([job, keyd = m_vault.keyd(), spec = selected_chain(),
+                    proposal = m_proposal, expect = m_tx_hash_expect,
+                    pass = std::move(pass)]() mutable {
+        try {
+            auto tx = keyd->approve_btc(proposal, pass);
+            pass.reset();
+            if (!tx)
+                throw std::runtime_error(keyd->last_error());
+            job->step.store(1);
+            job->tx_hash = btc::broadcast_tx(spec, *tx, expect);
+            job->step.store(2);
+            // Accepted into the mempool is the receipt this dialog
+            // waits for — a block is ten minutes away on a good day,
+            // and the ledger page will show the confirmation.
+            job->tx_success = true;
+            job->phase.store(1);
+        } catch (const std::exception& e) {
+            job->error = e.what();
+            job->phase.store(2);
+        } catch (...) {
+            job->error = "worker failed";
+            job->phase.store(2);
+        }
+    }).detach();
+}
+
 void SendPage::confirm_send()
 {
     if (strnlen(m_pass.data(), m_pass.size()) == 0)
@@ -622,6 +822,10 @@ void SendPage::confirm_send()
     }
     if (m_sol_send) {
         confirm_sol_send();
+        return;
+    }
+    if (m_btc_send) {
+        confirm_btc_send();
         return;
     }
     if (m_proposal == 0) {
@@ -751,7 +955,62 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
 
         row(tr("send.from"), m_vault.active_name() + " · " + m_from);
         row(tr("send.to"), m_to_checked);
-        if (m_sol_send) {
+        if (m_btc_send) {
+            // The fee market in three tiers; switching repriced the
+            // coin selection before this frame drew it.
+            const char* tier_keys[3]
+                = { "send.fee.fast", "send.fee.normal", "send.fee.slow" };
+            const uint64_t tier_rates[3]
+                = { m_btc_tiers.fast, m_btc_tiers.normal, m_btc_tiers.slow };
+            ImGui::PushFont(nullptr, kit_caption_size());
+            float rowW = 0;
+            std::string labels[3];
+            for (int i = 0; i < 3; ++i) {
+                labels[std::size_t(i)] = std::string(tr(tier_keys[i])) + " "
+                    + std::to_string(tier_rates[i]);
+                rowW += kit_button_width(labels[std::size_t(i)].c_str())
+                    + ImGui::GetStyle().ItemSpacing.x;
+            }
+            ImGui::SetCursorPosX((ImGui::GetWindowWidth() - rowW) * 0.5f);
+            for (int i = 0; i < 3; ++i) {
+                ImGui::PushID(200 + i);
+                const bool on = m_btc_tier == i;
+                if ((on ? kit_primary_button(labels[std::size_t(i)].c_str())
+                        : kit_subtle_button(labels[std::size_t(i)].c_str()))
+                    && !on) {
+                    m_btc_tier = i;
+                    btc_reselect();
+                }
+                ImGui::PopID();
+                ImGui::SameLine();
+            }
+            ImGui::PopFont();
+            ImGui::NewLine();
+            if (m_btc_sel_err.empty()) {
+                row(tr("send.fee_max"),
+                    units::format_units_display(
+                        units::U256::from_u64(m_btc_sel.fee), chain.decimals)
+                        + " " + chain.symbol);
+                row(tr("send.total_max"),
+                    units::format_units_display(
+                        units::U256::from_u64(m_btc_amount + m_btc_sel.fee),
+                        chain.decimals)
+                        + " " + chain.symbol);
+                char coins[96];
+                std::snprintf(coins, sizeof coins, "%zu in · change %s",
+                    m_btc_sel.inputs.size(),
+                    m_btc_sel.change
+                        ? units::format_units_display(
+                              units::U256::from_u64(m_btc_sel.change),
+                              chain.decimals)
+                              .c_str()
+                        : "0");
+                centered_caption(coins);
+            } else {
+                error_note(
+                    m_btc_sel_err.c_str(), ImGui::GetCursorPosX(), content);
+            }
+        } else if (m_sol_send) {
             // Solana's fee is a flat per-signature price, exact, and
             // both figures share the coin — the sum is honest.
             constexpr uint64_t kFeeLamports = 5000;
@@ -839,8 +1098,9 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
         if (m_stage == Stage::Done && m_job) {
             hero(amount.c_str());
             centered_caption(ok ? tr("send.confirmed") : tr("send.reverted"));
-            // Solana's receipt is the signature's fate, not a block.
-            if (!m_sol_send) {
+            // Solana's receipt is the signature's fate; Bitcoin's is
+            // mempool acceptance — neither owns a block number here.
+            if (!m_sol_send && !m_btc_send) {
                 char block[64];
                 std::snprintf(block, sizeof block, "%s %llu", tr("send.block"),
                     (unsigned long long)m_job->block);

@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "domain/assets/token_registry.hpp"
+#include "domain/btc/coin_select.hpp"
+#include "domain/btc/esplora.hpp"
 #include "domain/chains/chain_spec.hpp"
 #include "domain/tx/eip1559.hpp"
 #include "domain/tx/txflow.hpp"
@@ -75,6 +77,9 @@ private:
         uint64_t balance = 0;
         uint64_t to_balance = 0;
         uint64_t rent = 0;
+        // the Bitcoin quote: the purse and the fee market
+        std::vector<btc::Utxo> utxos;
+        btc::FeeTiers tiers;
         // delivery results (hash written before step goes to 2)
         std::string tx_hash;
         uint64_t block = 0;
@@ -95,6 +100,9 @@ private:
     void begin_review();
     void begin_sol_review();
     void confirm_sol_send();
+    void begin_btc_review();
+    void confirm_btc_send();
+    void btc_reselect();
     void confirm_send();
     void cancel_flow();
     void poll_job();
@@ -139,6 +147,15 @@ private:
     uint64_t m_sol_to_balance = 0;
     uint64_t m_sol_rent = 0;
     std::vector<uint8_t> m_sol_msg;
+    // The Bitcoin leg: the purse quoted, a tier chosen, coins picked.
+    bool m_btc_send = false;
+    uint64_t m_btc_amount = 0; // satoshi
+    int m_btc_tier = 1;        // 0 fast, 1 normal, 2 slow
+    std::vector<btc::Utxo> m_btc_utxos;
+    btc::FeeTiers m_btc_tiers;
+    btc::CoinSelection m_btc_sel;
+    std::string m_btc_sel_err;    // insufficient purse at this tier
+    std::string m_tx_hash_expect; // our txid; the node must echo it
     uint64_t m_proposal = 0;
 
     std::function<void()> m_on_settled;
