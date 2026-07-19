@@ -248,6 +248,7 @@ add_library(izan_domain STATIC
     domain/tx/eip1559.cpp
     domain/tx/txflow.cpp
     domain/swap/lifi.cpp
+    domain/btc/coin_select.cpp
     domain/btc/esplora.cpp
     domain/sol/solana.cpp
 )

@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 
+#include "domain/btc/coin_select.hpp"
 #include "domain/btc/esplora.hpp"
 
 TEST_CASE("bitcoin addresses validate by decoding across all four forms")
@@ -102,4 +103,57 @@ TEST_CASE("an esplora tx page reads as our side of the ledger")
     CHECK(txs[1].counterparty == "3DestFace");
 
     CHECK_THROWS(izan::btc::parse_txs("{}", self));
+}
+
+TEST_CASE("the coin selector is deterministic and honest about dust")
+{
+    using izan::btc::Utxo;
+    const std::vector<Utxo> purse = {
+        { "aa", 0, 50000 },
+        { "bb", 1, 30000 },
+        { "cc", 0, 10000 },
+        { "dd", 2, 546 },
+    };
+    // One big coin covers it: 1 input, 2 outputs, fee = 141 * 2.
+    auto s = izan::btc::select_coins(purse, 20000, 2);
+    REQUIRE(s.inputs.size() == 1);
+    CHECK(s.inputs[0].txid == "aa");
+    CHECK(s.fee == izan::btc::p2wpkh_vsize(1, 2) * 2);
+    CHECK(s.change == 50000 - 20000 - s.fee);
+
+    // Needs two coins; greedy takes the biggest first.
+    auto s2 = izan::btc::select_coins(purse, 70000, 1);
+    REQUIRE(s2.inputs.size() == 2);
+    CHECK(s2.inputs[1].txid == "bb");
+    CHECK(s2.change == 80000 - 70000 - s2.fee);
+
+    // Change below dust folds into the fee and the outputs slim to one.
+    const std::vector<Utxo> tight = { { "ee", 0, 21000 } };
+    auto s3 = izan::btc::select_coins(tight, 20500, 1);
+    CHECK(s3.change == 0);
+    CHECK(s3.fee == 500); // everything left over, honestly labelled
+
+    // Cannot afford: amount + fee over the whole purse.
+    CHECK_THROWS(izan::btc::select_coins(purse, 90000, 2));
+    CHECK_THROWS(izan::btc::select_coins(purse, 0, 2));
+
+    // The sweep: everything in, one output, no change.
+    auto sw = izan::btc::sweep_coins(purse, 2);
+    CHECK(sw.inputs.size() == 4);
+    CHECK(sw.fee == izan::btc::p2wpkh_vsize(4, 1) * 2);
+    CHECK(sw.change == 0);
+    CHECK_THROWS(
+        izan::btc::sweep_coins({ { "ff", 0, 600 } }, 10)); // fee eats it
+
+    // The esplora utxo page: unconfirmed entries stay out.
+    const char* json = R"([
+      {"txid":"a1","vout":0,"value":1000,"status":{"confirmed":true}},
+      {"txid":"a2","vout":1,"value":2000,"status":{"confirmed":false}},
+      {"txid":"a3","vout":0,"value":3000,"status":{"confirmed":true}}
+    ])";
+    const auto coins = izan::btc::parse_utxos(json);
+    REQUIRE(coins.size() == 2);
+    CHECK(coins[0].txid == "a1");
+    CHECK(coins[1].value == 3000);
+    CHECK_THROWS(izan::btc::parse_utxos("{}"));
 }
