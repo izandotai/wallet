@@ -79,4 +79,39 @@ keyd::DerivePreset default_preset(crypto::SecretKind kind)
     return offered.empty() ? keyd::DerivePreset::MetaMask : offered.front();
 }
 
+const char* family_key(keyd::ChainFamily family)
+{
+    switch (family) {
+    case keyd::ChainFamily::Btc:
+        return "btc";
+    case keyd::ChainFamily::Sol:
+        return "sol";
+    default:
+        return "evm";
+    }
+}
+
+std::vector<std::string> wallet_families(const AccountsMeta& meta)
+{
+    if (meta.kind == kKindWatch)
+        return { meta.watch_family.empty() ? "evm" : meta.watch_family };
+    // An empty kind is a pre-manager sidecar, and those were all HD.
+    if (meta.kind == kKindHd || meta.kind.empty())
+        return { "evm", "btc", "sol" };
+    return { family_key(keyd::preset_family(keyd::DerivePreset(meta.preset))) };
+}
+
+keyd::DerivePreset family_preset(
+    const AccountsMeta& meta, std::string_view family)
+{
+    const auto born = keyd::DerivePreset(meta.preset);
+    if (family == family_key(keyd::preset_family(born)))
+        return born;
+    if (family == "btc")
+        return keyd::DerivePreset::BtcSegwit;
+    if (family == "sol")
+        return keyd::DerivePreset::SolPhantom;
+    return keyd::DerivePreset::MetaMask;
+}
+
 }

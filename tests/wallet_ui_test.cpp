@@ -282,3 +282,51 @@ TEST_CASE("watch imports speak three families and remember which")
     store.write_meta(id, meta);
     CHECK(store.read_meta(id).watch_family == "evm");
 }
+
+TEST_CASE("an HD wallet answers for every family, keys stay on their curve")
+{
+    using izan::keyd::DerivePreset;
+    izan::ui::AccountsMeta hd;
+    hd.kind = izan::ui::kKindHd;
+    hd.preset = uint8_t(DerivePreset::LedgerLive);
+    CHECK(izan::ui::wallet_families(hd)
+        == std::vector<std::string> { "evm", "btc", "sol" });
+    // The birth preset answers for its own family; the others get the
+    // industry defaults, never a second guess.
+    CHECK(izan::ui::family_preset(hd, "evm") == DerivePreset::LedgerLive);
+    CHECK(izan::ui::family_preset(hd, "btc") == DerivePreset::BtcSegwit);
+    CHECK(izan::ui::family_preset(hd, "sol") == DerivePreset::SolPhantom);
+
+    // A BTC-born seed keeps its chosen address format for BTC.
+    izan::ui::AccountsMeta btc_born;
+    btc_born.kind = izan::ui::kKindHd;
+    btc_born.preset = uint8_t(DerivePreset::BtcNestedSegwit);
+    CHECK(izan::ui::family_preset(btc_born, "btc")
+        == DerivePreset::BtcNestedSegwit);
+    CHECK(izan::ui::family_preset(btc_born, "evm") == DerivePreset::MetaMask);
+
+    // Pre-manager sidecars never recorded a kind — those were all HD.
+    izan::ui::AccountsMeta legacy;
+    CHECK(izan::ui::wallet_families(legacy).size() == 3);
+
+    izan::ui::AccountsMeta key;
+    key.kind = izan::ui::kKindSecp;
+    key.preset = uint8_t(DerivePreset::BtcSegwit);
+    CHECK(izan::ui::wallet_families(key) == std::vector<std::string> { "btc" });
+
+    izan::ui::AccountsMeta sol_key;
+    sol_key.kind = izan::ui::kKindEd25519;
+    sol_key.preset = uint8_t(DerivePreset::SolPhantom);
+    CHECK(izan::ui::wallet_families(sol_key)
+        == std::vector<std::string> { "sol" });
+
+    izan::ui::AccountsMeta watch;
+    watch.kind = izan::ui::kKindWatch;
+    watch.watch_family = "btc";
+    CHECK(
+        izan::ui::wallet_families(watch) == std::vector<std::string> { "btc" });
+    izan::ui::AccountsMeta watch_legacy;
+    watch_legacy.kind = izan::ui::kKindWatch;
+    CHECK(izan::ui::wallet_families(watch_legacy)
+        == std::vector<std::string> { "evm" });
+}
