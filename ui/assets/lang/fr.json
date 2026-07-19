@@ -77,6 +77,7 @@
     "send.quoting": "Récupération du devis…",
     "send.err.address": "Adresse invalide.",
     "send.err.amount": "Montant invalide.",
+    "send.err.dust": "Sous le minimum de poussière de Bitcoin (0.00000546 BTC).",
     "send.nonce": "Nonce",
     "send.gas": "Gaz",
     "send.fee_max": "Frais max.",

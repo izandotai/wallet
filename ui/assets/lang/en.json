@@ -77,6 +77,7 @@
     "send.quoting": "Fetching quote…",
     "send.err.address": "Invalid address.",
     "send.err.amount": "Invalid amount.",
+    "send.err.dust": "Below Bitcoin's dust minimum (0.00000546 BTC).",
     "send.nonce": "Nonce",
     "send.gas": "Gas",
     "send.fee_max": "Max fee",

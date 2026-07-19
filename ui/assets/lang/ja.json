@@ -77,6 +77,7 @@
     "send.quoting": "見積もり取得中…",
     "send.err.address": "アドレスが無効です。",
     "send.err.amount": "金額が無効です。",
+    "send.err.dust": "ビットコインのダスト下限（0.00000546 BTC）未満です。",
     "send.nonce": "ノンス",
     "send.gas": "ガス",
     "send.fee_max": "手数料上限",

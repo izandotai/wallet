@@ -77,6 +77,7 @@
     "send.quoting": "Recupero preventivo…",
     "send.err.address": "Indirizzo non valido.",
     "send.err.amount": "Importo non valido.",
+    "send.err.dust": "Sotto il minimo di polvere di Bitcoin (0.00000546 BTC).",
     "send.nonce": "Nonce",
     "send.gas": "Gas",
     "send.fee_max": "Commissione max",

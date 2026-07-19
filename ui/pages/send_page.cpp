@@ -682,9 +682,15 @@ void SendPage::begin_btc_review()
         m_btc_amount = 0;
         const auto res = std::from_chars(
             dec.data(), dec.data() + dec.size(), m_btc_amount);
-        if (res.ec != std::errc() || res.ptr != dec.data() + dec.size()
-            || m_btc_amount < btc::kDustSats)
+        if (res.ec != std::errc() || res.ptr != dec.data() + dec.size())
             throw std::invalid_argument("amount");
+        // The network refuses to relay outputs below the dust bound —
+        // an amount that cannot travel deserves its own explanation.
+        if (m_btc_amount < btc::kDustSats) {
+            m_status = "send.err.dust";
+            m_status_is_key = true;
+            return;
+        }
         m_amount_label
             = units::format_units(amount, asset.decimals) + " " + asset.symbol;
         m_token_send = false;

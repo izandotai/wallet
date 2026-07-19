@@ -77,6 +77,7 @@
     "send.quoting": "Запрос котировки…",
     "send.err.address": "Недействительный адрес.",
     "send.err.amount": "Недопустимая сумма.",
+    "send.err.dust": "Ниже пылевого минимума Биткойна (0.00000546 BTC).",
     "send.nonce": "Nonce",
     "send.gas": "Газ",
     "send.fee_max": "Макс. комиссия",

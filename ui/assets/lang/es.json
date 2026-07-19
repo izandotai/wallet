@@ -77,6 +77,7 @@
     "send.quoting": "Obteniendo cotización…",
     "send.err.address": "Dirección no válida.",
     "send.err.amount": "Importe no válido.",
+    "send.err.dust": "Por debajo del mínimo de polvo de Bitcoin (0.00000546 BTC).",
     "send.nonce": "Nonce",
     "send.gas": "Gas",
     "send.fee_max": "Comisión máx.",
