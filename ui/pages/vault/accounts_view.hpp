@@ -47,12 +47,17 @@ public:
 
     // balances pairs with addresses by index; an empty string means
     // unknown and shows nothing.
+    // family_books: the same account line's addresses on evm/btc/sol
+    // (fixed order) for all-chain wallets — the receive QR grows a
+    // family switch when any book is filled. Empty books = no switch.
     Event draw(const i18n::Catalog& tr, bool busy, bool& secret_focus,
         std::span<const std::string> addresses,
         std::span<const std::string> balances, uint32_t active, bool hd,
-        bool watch = false);
+        bool watch = false,
+        std::array<std::span<const std::string>, 3> family_books = {});
 
 private:
+    int m_qr_family = -1; // -1 = the wallet's own line
     std::array<char, 256> m_pass {};
     std::vector<std::array<char, 48>> m_labels;
     bool m_open_backup = false;

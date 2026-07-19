@@ -251,13 +251,29 @@ void VaultPage::draw(GLFWwindow* window, const i18n::Catalog& tr)
             start_unlock(std::move(ev.pass));
         break;
     }
-    case Mode::Unlocked:
+    case Mode::Unlocked: {
+        // The receive QR's family books, evm/btc/sol: the birth
+        // family shows the session's own line, the others the books
+        // fetched at unlock. Key wallets leave them empty.
+        std::array<std::span<const std::string>, 3> books {};
+        const std::string mine = family_key(
+            keyd::preset_family(keyd::DerivePreset(m_meta.preset)));
+        for (const std::string& fam : wallet_families(m_meta)) {
+            const std::size_t slot = fam == "btc" ? 1 : fam == "sol" ? 2 : 0;
+            if (wallet_families(m_meta).size() > 1)
+                books[slot] = fam == mine
+                    ? std::span<const std::string>(m_session.addresses())
+                    : std::span<const std::string>(
+                          m_session.family_addresses(fam));
+        }
         handle_accounts(m_accounts.draw(tr, busy, m_secret_focus,
             m_session.addresses(), m_balances, m_meta.active,
             m_session.client()
                 && m_session.client()->wallet_kind()
-                    == keyd::RevealKind::SeedEntropy));
+                    == keyd::RevealKind::SeedEntropy,
+            false, books));
         break;
+    }
     case Mode::Watch:
         // The same account list, read-only flavor: no lock, no backup,
         // no deriving — addresses, balances, QR and copy.

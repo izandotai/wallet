@@ -26,7 +26,8 @@ void AccountsView::set_labels(
 
 AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     bool& secret_focus, std::span<const std::string> addresses,
-    std::span<const std::string> balances, uint32_t active, bool hd, bool watch)
+    std::span<const std::string> balances, uint32_t active, bool hd, bool watch,
+    std::array<std::span<const std::string>, 3> family_books)
 {
     Event ev;
     const float em = ImGui::GetFontSize();
@@ -140,10 +141,53 @@ AccountsView::Event AccountsView::draw(const i18n::Catalog& tr, bool busy,
     if (m_open_qr) {
         kit_dialog_open("##qr-view");
         m_open_qr = false;
+        m_qr_family = -1;
     }
     if (kit_dialog_begin("##qr-view")) {
         if (m_qr_index >= 0 && std::size_t(m_qr_index) < addresses.size()) {
-            const std::string& addr = addresses[std::size_t(m_qr_index)];
+            // The all-chain switch: one identity, three receiving
+            // faces. Chain-family names are technical vocabulary and
+            // stay untranslated.
+            static constexpr const char* kFam[3] = { "EVM", "BTC", "SOL" };
+            bool any = false;
+            for (const auto& book : family_books)
+                any = any || !book.empty();
+            if (any) {
+                float row = 0;
+                for (int f = 0; f < 3; ++f)
+                    if (!family_books[std::size_t(f)].empty())
+                        row += kit_button_width(kFam[f])
+                            + ImGui::GetStyle().ItemSpacing.x;
+                ImGui::SetCursorPosX((ImGui::GetWindowWidth() - row) * 0.5f);
+                for (int f = 0; f < 3; ++f) {
+                    const auto& book = family_books[std::size_t(f)];
+                    if (book.empty())
+                        continue;
+                    ImGui::PushID(f);
+                    // Before any click the wallet's own line is up;
+                    // its family's pill lights so the switch reads
+                    // true from the first frame.
+                    const bool on = m_qr_family == f
+                        || (m_qr_family < 0
+                            && std::size_t(m_qr_index) < book.size()
+                            && book[std::size_t(m_qr_index)]
+                                == addresses[std::size_t(m_qr_index)]);
+                    if (on ? kit_primary_button(kFam[f])
+                           : kit_subtle_button(kFam[f]))
+                        m_qr_family = f;
+                    ImGui::PopID();
+                    ImGui::SameLine();
+                }
+                ImGui::NewLine();
+                kit_vspace(0.4f);
+            }
+            const auto& picked = m_qr_family >= 0
+                    && std::size_t(m_qr_index)
+                        < family_books[std::size_t(m_qr_family)].size()
+                ? family_books[std::size_t(m_qr_family)]
+                              [std::size_t(m_qr_index)]
+                : addresses[std::size_t(m_qr_index)];
+            const std::string& addr = picked;
             const float qr_side = em * 9.0f;
             ImGui::SetCursorPosX((ImGui::GetWindowWidth() - qr_side) * 0.5f);
             kit_qr(addr.c_str(), 9.0f);
