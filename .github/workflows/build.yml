@@ -1,0 +1,77 @@
+# The reproducibility spine: anyone can rebuild izan from public
+# source in a scripted environment and compare hashes against a
+# release. The toolchain is MSYS2's mingw64 lane — fully scripted,
+# no hand-installed compilers — and the artifact digest lands in the
+# job summary on every run.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            make
+            perl
+            git
+
+      # OpenSSL is an ExternalProject and dominates a cold build;
+      # everything FetchContent lands under build/_deps as well. The
+      # key follows the dependency pins — edit a pin, rebuild cold.
+      - name: Cache third-party builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/_deps
+            build/deps
+          key: deps-${{ runner.os }}-${{ hashFiles('cmake/**', 'CMakeLists.txt') }}
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TLS_CAINFO=/usr/ssl/certs/ca-bundle.crt
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Digest
+        run: |
+          cd build
+          sha256sum izan.exe izan_ui_smoke.exe izan_tests.exe | tee SHA256SUMS
+          {
+            echo '### Artifact digests'
+            echo '```'
+            cat SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: izan-windows-x64
+          path: |
+            build/izan.exe
+            build/SHA256SUMS
+          if-no-files-found: error
