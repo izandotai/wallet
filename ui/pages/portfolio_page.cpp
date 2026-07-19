@@ -154,9 +154,11 @@ void PortfolioPage::refresh(const std::array<std::string, 3>& addrs)
                         chains::RpcClient rpc(spec);
                         add_row(row, sol::native_balance(rpc, address),
                             spec.decimals);
-                        // The SPL shelf, same breath: majors by name,
-                        // strangers by their mint; empty ATAs stay off
-                        // the screen.
+                        // The SPL shelf, same breath: majors by our
+                        // table, strangers by their own on-chain card
+                        // (sanitized — that text is author-controlled),
+                        // and only then by a shortened mint. Empty
+                        // ATAs stay off the screen.
                         for (const sol::SplHolding& h :
                             sol::token_accounts(rpc, address)) {
                             if (h.amount == 0)
@@ -164,8 +166,16 @@ void PortfolioPage::refresh(const std::array<std::string, 3>& addrs)
                             Row t;
                             t.chain_id = spec.chain_id;
                             t.chain = spec.name;
-                            const std::string sym
-                                = sol::known_mint_symbol(h.mint);
+                            std::string sym = sol::known_mint_symbol(h.mint);
+                            if (sym.empty())
+                                try {
+                                    const sol::MintMeta meta = sol::mint_meta(
+                                        rpc, h.mint, h.token2022);
+                                    sym = meta.symbol.empty() ? meta.name
+                                                              : meta.symbol;
+                                } catch (const std::exception&) {
+                                    // nameless stranger: address it is
+                                }
                             t.symbol = sym.empty() ? h.mint.substr(0, 4) + "…"
                                     + h.mint.substr(h.mint.size() - 4)
                                                    : sym;

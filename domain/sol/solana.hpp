@@ -79,7 +79,7 @@ uint8_t mint_decimals(chains::RpcClient& rpc, std::string_view mint);
 // ---- SPL tokens: the holdings under the token program ----
 
 struct SplHolding {
-    std::string account; // the token account (usually the ATA)
+    std::string account;    // the token account (usually the ATA)
     std::string mint;
     uint64_t amount = 0;    // base units
     uint8_t decimals = 0;
@@ -103,5 +103,32 @@ bool mint_is_token2022(chains::RpcClient& rpc, std::string_view mint);
 // A tiny curated table, not a registry — pricing and symbols for the
 // long tail come later, and an unknown mint shows its own address.
 std::string known_mint_symbol(std::string_view mint);
+
+// ---- on-chain token names: what the mint itself declares ----
+//
+// Two homes: a classic SPL token keeps name/symbol in its Metaplex
+// metadata PDA (Borsh); a Token-2022 mint carries them inside its own
+// account as the tokenMetadata extension. Either way the text is
+// AUTHOR-CONTROLLED — display only, sanitized, never trusted.
+
+struct MintMeta {
+    std::string name;
+    std::string symbol;
+};
+
+// Borsh body of a Metaplex metadata account (raw account bytes).
+MintMeta parse_metaplex_meta(std::span<const uint8_t> data);
+// A getAccountInfo jsonParsed answer for a Token-2022 mint.
+MintMeta parse_token2022_meta(std::string_view json);
+
+// Fetch by the right path for the mint's program; empty fields when
+// the chain has no name to offer. Results are cached for the process
+// lifetime — on-chain metadata is effectively immutable for display.
+MintMeta mint_meta(
+    chains::RpcClient& rpc, std::string_view mint, bool token2022);
+
+// Strip control, zero-width and bidi-override characters and cap the
+// length — a token name is a stranger's string aimed at your eyes.
+std::string sanitize_token_text(std::string_view raw, std::size_t max_bytes);
 
 }

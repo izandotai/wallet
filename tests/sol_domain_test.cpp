@@ -428,8 +428,8 @@ TEST_CASE("a Token-2022 transfer keeps its own program and its own doors")
     const char* pump = "3WjLscH2JsXLEFJZRA9z8ti8yRGxWGKbqymPd7UicRth";
     std::array<uint8_t, 32> hash {};
     hash.fill(0x44);
-    const auto msg = izan::sol::encode_spl_transfer(
-        alice, bob, pump, 777, 6, hash, true);
+    const auto msg
+        = izan::sol::encode_spl_transfer(alice, bob, pump, 777, 6, hash, true);
     const auto back = izan::sol::parse_spl_transfer(msg);
     CHECK(back.token2022);
     CHECK(back.mint == pump);
@@ -449,4 +449,52 @@ TEST_CASE("a Token-2022 transfer keeps its own program and its own doors")
     const auto classic_keys = std::span(classic).subspan(4 + 192, 32);
     std::copy(classic_keys.begin(), classic_keys.end(), half.begin() + 4 + 192);
     CHECK_THROWS(izan::sol::parse_spl_transfer(half));
+}
+
+TEST_CASE("a mint's on-chain card is found, read and defanged")
+{
+    // The Metaplex PDA, pinned to USDC's live metadata account
+    // (owner and contents verified on mainnet 2026-07-19).
+    CHECK(izan::crypto::sol_metadata_pda(
+              "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+        == "5x38Kp4hvdomTCnCrAny4UtMUt5rQBdB6px2K1Ui45Wq");
+
+    // Borsh body: key + two pubkeys, then NUL-padded strings.
+    std::vector<uint8_t> data { 4 };
+    data.insert(data.end(), 64, 0xaa);
+    auto put_str = [&](std::string s, std::size_t padded) {
+        s.resize(padded, '\0');
+        data.push_back(uint8_t(padded));
+        data.insert(data.end(), 3, 0);
+        data.insert(data.end(), s.begin(), s.end());
+    };
+    put_str("USD Coin", 32);
+    put_str("USDC", 10);
+    const auto meta = izan::sol::parse_metaplex_meta(data);
+    CHECK(meta.name == "USD Coin");
+    CHECK(meta.symbol == "USDC");
+    CHECK_THROWS(
+        izan::sol::parse_metaplex_meta(std::span(data).subspan(0, 70)));
+
+    // A Token-2022 answer, as mainnet spoke it for the WOC mint.
+    const char* answer = R"({"context":{"slot":1},"value":{"data":{"parsed":{
+        "info":{"decimals":6,"extensions":[
+          {"extension":"metadataPointer","state":{"authority":null}},
+          {"extension":"tokenMetadata","state":{"additionalMetadata":[],
+            "mint":"3WjLscH2JsXLEFJZRA9z8ti8yRGxWGKbqymPd7UicRth",
+            "name":"World Of Claudecraft","symbol":"WOC",
+            "uri":"https://example.invalid"}}]},
+        "type":"mint"},"program":"spl-token-2022"},
+        "owner":"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"}})";
+    const auto m22 = izan::sol::parse_token2022_meta(answer);
+    CHECK(m22.name == "World Of Claudecraft");
+    CHECK(m22.symbol == "WOC");
+
+    // The defanger: controls, zero-width and bidi overrides vanish,
+    // truncation never bisects a character.
+    using izan::sol::sanitize_token_text;
+    CHECK(sanitize_token_text("US‮DC​ ok\n", 32) == "USDC ok");
+    CHECK(sanitize_token_text("  padded  ", 32) == "padded");
+    CHECK(sanitize_token_text("日本語トークン", 8) == "日本");
+    CHECK(sanitize_token_text("evil\xff\xfetail", 32) == "evil");
 }
