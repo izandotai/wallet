@@ -420,6 +420,17 @@ int main(int argc, char** argv)
                 ImGui::EndMenu();
             }
         });
+        // IZAN_DIALOG_PROBE=1：About 对话框自动开一次，配合 IZAN_SHOT
+        // 无头截图——对话框边角案的现场取证探针（2026-07-20）。
+        {
+            static const bool dialog_probe
+                = std::getenv("IZAN_DIALOG_PROBE") != nullptr;
+            static bool probe_fired = false;
+            if (dialog_probe && !probe_fired && ImGui::GetFrameCount() >= 3) {
+                open_about = true;
+                probe_fired = true;
+            }
+        }
         if (open_about)
             ui::kit_dialog_open("##about");
         if (ui::kit_dialog_begin("##about")) {
@@ -585,6 +596,33 @@ int main(int argc, char** argv)
             glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
 
         app.end_frame(ui::theme_clear_color(chrome));
+
+        // IZAN_SHOT=<file.bmp>：数帧后抓前缓冲即退——无头验收之眼。
+        static const char* shot = std::getenv("IZAN_SHOT");
+        if (shot && *shot && ImGui::GetFrameCount() >= 8) {
+            int w = 0, h = 0;
+            glfwGetFramebufferSize(app.window(), &w, &h);
+            const int row = (w * 3 + 3) & ~3;
+            std::vector<unsigned char> px(std::size_t(row) * h);
+            glPixelStorei(GL_PACK_ALIGNMENT, 4);
+            glReadBuffer(GL_FRONT);
+            glReadPixels(0, 0, w, h, 0x80E0 /* GL_BGR */, GL_UNSIGNED_BYTE,
+                px.data());
+            unsigned char hdr[54] = { 'B', 'M' };
+            const std::uint32_t size = 54 + std::uint32_t(px.size());
+            std::memcpy(hdr + 2, &size, 4);
+            hdr[10] = 54;
+            hdr[14] = 40;
+            std::memcpy(hdr + 18, &w, 4);
+            std::memcpy(hdr + 22, &h, 4);
+            hdr[26] = 1;
+            hdr[28] = 24;
+            std::ofstream f(shot, std::ios::binary);
+            f.write(reinterpret_cast<const char*>(hdr), sizeof hdr);
+            f.write(reinterpret_cast<const char*>(px.data()),
+                std::streamsize(px.size()));
+            glfwSetWindowShouldClose(app.window(), GLFW_TRUE);
+        }
     });
     app.run();
     merge_layout_state(layout_keeper.final_state(), settings);
