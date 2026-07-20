@@ -426,9 +426,29 @@ int main(int argc, char** argv)
             static const bool dialog_probe
                 = std::getenv("IZAN_DIALOG_PROBE") != nullptr;
             static bool probe_fired = false;
-            if (dialog_probe && !probe_fired && ImGui::GetFrameCount() >= 3) {
-                open_about = true;
-                probe_fired = true;
+            if (dialog_probe) {
+                // 复刻用户路径：先合成点击掀开一次菜单再合上——若
+                // 菜单通道存在样式栈失衡（Release 无断言静默累积），
+                // 只有这样才能让病灶进入后续帧。
+                ImGuiIO& io = ImGui::GetIO();
+                const int f = ImGui::GetFrameCount();
+                const float mx = ui::kWindowFrameMargin + 40.0f;
+                const float my = ui::kWindowFrameMargin + ui::kTitleBarHeight
+                    + ui::kMenuBarHeight * 0.5f;
+                if (f == 4)
+                    io.AddMousePosEvent(mx, my);
+                if (f == 6)
+                    io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+                if (f == 8)
+                    io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+                if (f == 12)
+                    io.AddKeyEvent(ImGuiKey_Escape, true);
+                if (f == 13)
+                    io.AddKeyEvent(ImGuiKey_Escape, false);
+                if (!probe_fired && f >= 16) {
+                    open_about = true;
+                    probe_fired = true;
+                }
             }
         }
         if (open_about)
@@ -599,7 +619,7 @@ int main(int argc, char** argv)
 
         // IZAN_SHOT=<file.bmp>：数帧后抓前缓冲即退——无头验收之眼。
         static const char* shot = std::getenv("IZAN_SHOT");
-        if (shot && *shot && ImGui::GetFrameCount() >= 8) {
+        if (shot && *shot && ImGui::GetFrameCount() >= 24) {
             int w = 0, h = 0;
             glfwGetFramebufferSize(app.window(), &w, &h);
             const int row = (w * 3 + 3) & ~3;
