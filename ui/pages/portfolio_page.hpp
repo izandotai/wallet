@@ -72,6 +72,15 @@ private:
         std::string error;
         bool ok = false;
         bool testnet = false;
+        // The row's baggage, packed where the row is born: each
+        // family's workshop answers for its own rows and the canvas
+        // dispatches without ever asking which family this is. (A
+        // family conditional in the draw loop once silently swallowed
+        // a parameter — this is the structural cure.)
+        bool sendable = false;  // click / menu walk to the send form
+        bool swappable = false; // the menu offers the exchange desk
+        uint8_t addr_slot = 0;  // which identity face: 0 evm 1 btc 2 sol
+        const char* addr_path = "/address/"; // the explorer's dialect
     };
 
     struct Job {

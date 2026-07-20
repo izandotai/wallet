@@ -149,6 +149,13 @@ void PortfolioPage::refresh(const std::array<std::string, 3>& addrs)
                 row.chain = spec.name;
                 row.symbol = spec.symbol;
                 row.testnet = spec.testnet;
+                // The family workshop packs the row's baggage: every
+                // family's coins can walk to the send form; Solana's
+                // native coin can also walk to the exchange desk.
+                row.sendable = true;
+                row.swappable = is_sol;
+                row.addr_slot = is_sol ? 2 : 1;
+                row.addr_path = is_sol ? "/account/" : "/address/";
                 try {
                     if (is_sol) {
                         chains::RpcClient rpc(spec);
@@ -181,6 +188,9 @@ void PortfolioPage::refresh(const std::array<std::string, 3>& addrs)
                                                    : sym;
                             t.token = h.mint;
                             t.testnet = spec.testnet;
+                            t.sendable = true;
+                            t.addr_slot = 2;
+                            t.addr_path = "/account/";
                             add_row(std::move(t),
                                 units::U256::from_u64(h.amount), h.decimals);
                         }
@@ -207,6 +217,9 @@ void PortfolioPage::refresh(const std::array<std::string, 3>& addrs)
                     row.symbol = h.symbol;
                     row.token = h.token;
                     row.testnet = h.testnet;
+                    row.sendable = true;
+                    row.swappable = true;
+                    row.addr_slot = 0;
                     if (h.ok) {
                         add_row(std::move(row), h.amount, h.decimals);
                     } else {
@@ -389,38 +402,29 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
             if (i)
                 kit_hairline();
             const std::string id = row.chain + "/" + row.symbol;
-            // The row's verbs follow its family: send/swap/tokens are
-            // EVM engines; a Solana row offers reading only.
-            const chains::ChainSpec* rspec = nullptr;
-            for (const chains::ChainSpec& c : m_chains)
-                if (c.chain_id == row.chain_id)
-                    rspec = &c;
-            const bool row_evm = rspec && rspec->is_evm();
+            // The canvas asks the row's baggage, never its family:
+            // the workshops answered when the row was born.
             ImGui::PushID(int(i));
             const AssetRowEvent ev = kit_asset_row(id.c_str(),
                 row.symbol.c_str(), row.chain.c_str(), row.amount.c_str(),
                 row.ok, tr("portfolio.unreadable"), row.fiat.c_str(), true);
-            const bool row_spl
-                = rspec && rspec->family == "sol" && !row.token.empty();
             // The row's token rides along whatever the family — an
             // ERC-20 contract and an SPL mint both name the asset the
             // send form should preselect; natives carry the empty
-            // string. (Gating the token on the SPL flag once silenced
-            // every EVM token row: symbol+empty-token matches nothing,
-            // so the click focused the form and selected nothing.)
-            if (ev.clicked && row.ok && (row_evm || row_spl) && m_on_send)
+            // string.
+            if (ev.clicked && row.ok && row.sendable && m_on_send)
                 m_on_send(row.chain_id, row.symbol, row.token, row.decimals);
-            if (ev.hovered && row.ok && (row_evm || row_spl))
+            if (ev.hovered && row.ok && row.sendable)
                 kit_tooltip(tr("send.title"));
             if (ev.menu)
                 ImGui::OpenPopup("##asset-menu");
             if (kit_menu_begin("##asset-menu")) {
-                if ((row_evm || row_spl)
+                if (row.sendable
                     && kit_menu_item(tr("send.title"), nullptr, false, row.ok)
                     && m_on_send)
                     m_on_send(
                         row.chain_id, row.symbol, row.token, row.decimals);
-                if (row_evm
+                if (row.swappable
                     && kit_menu_item(tr("swap.title"), nullptr, false, row.ok)
                     && m_on_swap)
                     m_on_swap(row.chain_id, row.symbol);
@@ -443,18 +447,11 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
                 // scan-family explorers); a blockscout that ignores
                 // ?a= still lands on the token page, nothing breaks.
                 // Only the chain's own coin opens the plain address
-                // page.
-                // Each family's explorer speaks its own path dialect:
-                // solscan says /account/, the scan family /address/.
-                const char* addr_path = rspec && rspec->family == "sol"
-                    ? "/account/"
-                    : "/address/";
-                // The row's family picks which face of the identity
-                // the explorer should be asked about.
-                const std::string& row_addr = rspec && rspec->family == "sol"
-                    ? m_addrs[2]
-                    : rspec && rspec->family == "btc" ? m_addrs[1]
-                                                      : m_addrs[0];
+                // page. Dialect and identity face come from the row's
+                // own baggage.
+                const char* addr_path = row.addr_path;
+                const std::string& row_addr
+                    = m_addrs[std::min<std::size_t>(row.addr_slot, 2)];
                 if (has_ex && kit_menu_item(tr("asset.menu.addr.explorer")))
                     kit_open_url(
                         (row.token.empty() ? ex->second + addr_path + row_addr
