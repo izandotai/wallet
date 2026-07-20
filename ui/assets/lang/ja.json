@@ -151,5 +151,7 @@
     "chrome.minimize": "最小化",
     "chrome.maximize": "最大化",
     "chrome.restore": "元に戻す",
-    "chrome.close": "閉じる"
+    "chrome.close": "閉じる",
+    "wallet.pin": "先頭に固定",
+    "wallet.unpin": "固定を解除"
 }

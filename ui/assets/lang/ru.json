@@ -151,5 +151,7 @@
     "chrome.minimize": "Свернуть",
     "chrome.maximize": "Развернуть",
     "chrome.restore": "Восстановить",
-    "chrome.close": "Закрыть"
+    "chrome.close": "Закрыть",
+    "wallet.pin": "Закрепить",
+    "wallet.unpin": "Открепить"
 }

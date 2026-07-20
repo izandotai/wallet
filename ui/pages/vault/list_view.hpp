@@ -17,7 +17,7 @@ namespace izan::ui {
 class WalletListView {
 public:
     struct Event {
-        enum class Type { None, Activate, Create, Import, Rename, Delete };
+        enum class Type { None, Activate, Create, Import, Rename, Delete, Pin };
         Type type = Type::None;
         std::string id;
         std::string name; // Rename: the new display name

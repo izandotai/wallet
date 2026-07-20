@@ -76,6 +76,8 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
                 subtitle += " · ";
             subtitle += std::to_string(w.count);
         }
+        if (w.pinned)
+            subtitle = subtitle.empty() ? "📌" : "📌 " + subtitle;
         if (kit_list_row("##row", w.name.c_str(), subtitle.c_str(), is_active,
                 is_active && active_unlocked)
             && !is_active) {
@@ -88,6 +90,10 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
         if (kit_menu_begin("##card-menu")) {
             if (kit_menu_item(tr("wallet.activate")) && !is_active) {
                 ev.type = Event::Type::Activate;
+                ev.id = w.id;
+            }
+            if (kit_menu_item(tr(w.pinned ? "wallet.unpin" : "wallet.pin"))) {
+                ev.type = Event::Type::Pin;
                 ev.id = w.id;
             }
             if (kit_menu_item(tr("wallet.rename"))) {

@@ -151,5 +151,7 @@
     "chrome.minimize": "最小化",
     "chrome.maximize": "最大化",
     "chrome.restore": "还原",
-    "chrome.close": "关闭"
+    "chrome.close": "关闭",
+    "wallet.pin": "置顶",
+    "wallet.unpin": "取消置顶"
 }

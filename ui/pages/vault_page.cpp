@@ -427,6 +427,13 @@ void VaultPage::handle_list(WalletListView::Event ev)
         }
         break;
     }
+    case WalletListView::Event::Type::Pin: {
+        AccountsMeta meta = m_store.read_meta(ev.id);
+        meta.pinned = !meta.pinned;
+        m_store.write_meta(ev.id, meta);
+        m_store.rescan();
+        break;
+    }
     case WalletListView::Event::Type::Delete:
         m_store.delete_wallet(ev.id);
         if (ev.id == m_active) {

@@ -4,6 +4,9 @@
 
 #include <doctest/doctest.h>
 
+#include <chrono>
+#include <thread>
+
 #include <filesystem>
 #include <fstream>
 
@@ -68,11 +71,45 @@ TEST_CASE("the store lists wallets and round-trips their sidecars")
     CHECK(meta.preset == 5);
 
     // Kind badge and per-account notes ride the same sidecar.
-    store.write_meta(id, { "老干妈", 3, 2, 5, 0, ui::kKindHd, { "冷钱包", "" } });
+    store.write_meta(
+        id, { "老干妈", 3, 2, 5, 0, ui::kKindHd, { "冷钱包", "" } });
     const ui::AccountsMeta noted = store.read_meta(id);
     CHECK(noted.kind == ui::kKindHd);
     REQUIRE(noted.labels.size() == 2);
     CHECK(noted.labels[0] == "冷钱包");
+}
+
+TEST_CASE("a pinned wallet floats to the top and stays pinned on disk")
+{
+    TempDir tmp;
+    ui::WalletStore store(tmp.path);
+    const std::string first = ui::WalletStore::mint_id("元老");
+    const std::string second = ui::WalletStore::mint_id("新人");
+    touch_vault(store, first);
+    store.write_meta(first, { "元老" });
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    touch_vault(store, second);
+    store.write_meta(second, { "新人" });
+    store.rescan();
+    REQUIRE(store.wallets().size() == 2);
+    // Birth order first: the elder on top.
+    CHECK(store.wallets().front().id == first);
+    CHECK(!store.wallets().front().pinned);
+
+    // Pin the younger one; it leapfrogs.
+    ui::AccountsMeta meta = store.read_meta(second);
+    meta.pinned = true;
+    store.write_meta(second, meta);
+    store.rescan();
+    CHECK(store.wallets().front().id == second);
+    CHECK(store.wallets().front().pinned);
+    // The flag survives its own file.
+    CHECK(store.read_meta(second).pinned);
+    // Unpin: the old order returns.
+    meta.pinned = false;
+    store.write_meta(second, meta);
+    store.rescan();
+    CHECK(store.wallets().front().id == first);
 }
 
 TEST_CASE("deleting a wallet leaves nothing on disk")

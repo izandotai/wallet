@@ -151,5 +151,7 @@
     "chrome.minimize": "Minimize",
     "chrome.maximize": "Maximize",
     "chrome.restore": "Restore",
-    "chrome.close": "Close"
+    "chrome.close": "Close",
+    "wallet.pin": "Pin to top",
+    "wallet.unpin": "Unpin"
 }

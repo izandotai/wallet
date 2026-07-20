@@ -37,6 +37,9 @@ struct AccountsMeta {
     // "sol"); empty on pre-family sidecars and means evm.
     std::vector<std::string> watch;
     std::string watch_family;
+    // Pinned wallets float to the top of the list, newest-birth order
+    // preserved within each group.
+    bool pinned = false;
 };
 
 // A wallet's display name is anything the user likes, in any script;
@@ -50,6 +53,7 @@ struct WalletEntry {
     std::string name;
     std::string kind;
     uint32_t count = 1;
+    bool pinned = false;
     // The vault file's write time — effectively its birth, since the
     // file only changes on a rekey. The list order rides on it.
     std::filesystem::file_time_type born {};
