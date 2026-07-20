@@ -351,6 +351,11 @@ void PortfolioPage::draw(const i18n::Catalog& tr)
         m_rows.clear();
         m_status.clear();
         m_fetched_at = 0.0;
+        // Same as the ledger page: a flight for the previous wallet
+        // may still be in the air — orphan it so the spinner stops
+        // speaking for an address that left, and the new snapshot
+        // takes off now instead of being swallowed by the old one.
+        m_job.reset();
         refresh(mine);
     }
 
