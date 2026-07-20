@@ -93,7 +93,7 @@ FetchContent_Declare(izan_crypto
 option(IZAN_BUILD_UI "Build the wallet UI" ON)
 FetchContent_Declare(izan_ui
     GIT_REPOSITORY https://github.com/izandotai/izan-ui.git
-    GIT_TAG 60da8a1
+    GIT_TAG bdea66f
     EXCLUDE_FROM_ALL
 )
 if(NOT (IZAN_BUILD_UI AND WIN32))
