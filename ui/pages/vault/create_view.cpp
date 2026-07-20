@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "ui/pages/vault/create_view.hpp"
 
 #include <cstring>
@@ -23,6 +24,15 @@ CreateView::Event CreateView::draw_dialog(const i18n::Catalog& tr, bool busy,
 {
     Event ev;
     bool dismissed = false;
+    // IZAN_DIALOG_PROBE2=1：Create 对话框自动开一次（无头取证）。
+    {
+        static const bool probe2 = std::getenv("IZAN_DIALOG_PROBE2") != nullptr;
+        static bool fired2 = false;
+        if (probe2 && !fired2 && ImGui::GetFrameCount() >= 6) {
+            kit_dialog_open("##create-wallet");
+            fired2 = true;
+        }
+    }
     if (!kit_dialog_begin("##create-wallet", &dismissed))
         return ev;
     if (dismissed)
