@@ -83,8 +83,21 @@ namespace {
 
     void centered_caption(const char* text)
     {
+        // The dialog auto-sizes to its widest line: a caption drawn at
+        // natural width drags the window wide while every field stays
+        // pinned to the column. Wrap at the column, never the window.
+        const float content = ImGui::GetFontSize() * design().dialog_width;
         ImGui::PushFont(nullptr, kit_caption_size());
-        centered_text(text, true);
+        if (ImGui::CalcTextSize(text).x <= content) {
+            centered_text(text, true);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + content);
+            ImGui::TextUnformatted(text);
+            ImGui::PopTextWrapPos();
+            ImGui::PopStyleColor();
+        }
         ImGui::PopFont();
     }
 
@@ -1120,7 +1133,7 @@ void SendPage::draw_confirm_dialog(const i18n::Catalog& tr)
                 "nonce %llu · gas %llu · %s gwei",
                 (unsigned long long)m_tx.nonce,
                 (unsigned long long)m_tx.gas_limit,
-                units::format_units(m_tx.max_fee_per_gas, 9).c_str());
+                units::format_units_display(m_tx.max_fee_per_gas, 9).c_str());
             centered_caption(plumbing);
         }
         kit_vspace(0.4f);

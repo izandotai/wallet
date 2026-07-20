@@ -78,8 +78,21 @@ namespace {
 
     void centered_caption(const char* text)
     {
+        // The dialog auto-sizes to its widest line: a caption drawn at
+        // natural width drags the window wide while every field stays
+        // pinned to the column. Wrap at the column, never the window.
+        const float content = ImGui::GetFontSize() * design().dialog_width;
         ImGui::PushFont(nullptr, kit_caption_size());
-        centered_text(text, true);
+        if (ImGui::CalcTextSize(text).x <= content) {
+            centered_text(text, true);
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + content);
+            ImGui::TextUnformatted(text);
+            ImGui::PopTextWrapPos();
+            ImGui::PopStyleColor();
+        }
         ImGui::PopFont();
     }
 
@@ -935,7 +948,7 @@ void SwapPage::draw_confirm_dialog(const i18n::Catalog& tr)
             (unsigned long long)(m_need_approve ? m_tx_approve.nonce
                                                 : m_tx_swap.nonce),
             (unsigned long long)total_gas,
-            units::format_units(m_tx_swap.max_fee_per_gas, 9).c_str());
+            units::format_units_display(m_tx_swap.max_fee_per_gas, 9).c_str());
         centered_caption(plumbing);
 
         // A quote is perishable: every 15 seconds the figures refresh
