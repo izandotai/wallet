@@ -133,9 +133,11 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
     if (kit_dialog_begin("##rename-wallet")) {
         kit_dialog_header_avatar(target_name.c_str(), tr("wallet.rename"));
         kit_dialog_field_width();
-        const bool enter = ImGui::InputTextWithHint("##rename-name",
-            tr("wallet.name"), m_rename.data(), m_rename.size(),
-            ImGuiInputTextFlags_EnterReturnsTrue);
+        // 开窗即入井：对话框存在的唯一目的就是打字
+        if (ImGui::IsWindowAppearing())
+            kit_focus_here();
+        const bool enter = kit_text_field("##rename-name", tr("wallet.name"),
+            m_rename.data(), m_rename.size());
         int choice = kit_dialog_buttons(tr("ui.cancel"), tr("wallet.rename"));
         if (enter)
             choice = 2;
@@ -158,11 +160,17 @@ WalletListView::Event WalletListView::draw(const i18n::Catalog& tr, bool busy,
             target_name.c_str(), target_name.c_str(), tr("wallet.delete.warn"));
         kit_caption(tr("wallet.delete.confirm"));
         kit_dialog_field_width();
-        ImGui::InputText("##confirm", m_confirm.data(), m_confirm.size());
+        if (ImGui::IsWindowAppearing())
+            kit_focus_here();
+        // 回车即确认——但只在名字对上时；名字不对回车与灰钮同哑
+        const bool enter = kit_text_field("##confirm", tr("wallet.name"),
+            m_confirm.data(), m_confirm.size());
         const std::string typed(
             m_confirm.data(), strnlen(m_confirm.data(), m_confirm.size()));
-        const int choice = kit_dialog_buttons(
+        int choice = kit_dialog_buttons(
             tr("ui.cancel"), tr("wallet.delete"), typed == target_name, true);
+        if (enter && typed == target_name)
+            choice = 2;
         if (choice == 2) {
             ev.type = Event::Type::Delete;
             ev.id = m_target;
