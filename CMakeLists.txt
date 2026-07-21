@@ -201,10 +201,11 @@ target_link_libraries(izan_watch PRIVATE izan_domain izan_units)
 # L5 shell. Heavy fetch (GLFW/FreeType/ImGui); switch it off to keep a
 # trust-plane-only build fast.
 if(IZAN_BUILD_UI AND WIN32)
-    # The wallet. One binary, two personalities (UI / --keyd-child).
-    add_executable(izan WIN32
-        apps/izan_main.cpp
-        apps/izan.rc
+    # The wallet rig: the five pages and their wiring as one
+    # construction, shell-agnostic — the standalone workbench and any
+    # future shell mount this same middle.
+    add_library(izan_wallet_rig STATIC
+        ui/rig/wallet_rig.cpp
         ui/pages/portfolio_page.cpp
         ui/pages/history_page.cpp
         ui/pages/send_page.cpp
@@ -217,9 +218,17 @@ if(IZAN_BUILD_UI AND WIN32)
         ui/pages/vault/secret_view.cpp
         ui/pages/vault/unlock_view.cpp
     )
-    target_link_libraries(izan PRIVATE izan_ui_shell izan_kit izan_i18n
-        izan_keyd izan_wallet_ui izan_crypto izan_secure izan_domain
-        izan_units glaze::glaze)
+    target_link_libraries(izan_wallet_rig
+        PUBLIC izan_ui_shell izan_kit izan_i18n izan_keyd izan_wallet_ui
+            izan_crypto izan_secure izan_domain izan_units
+        PRIVATE glaze::glaze)
+
+    # The wallet. One binary, two personalities (UI / --keyd-child).
+    add_executable(izan WIN32
+        apps/izan_main.cpp
+        apps/izan.rc
+    )
+    target_link_libraries(izan PRIVATE izan_wallet_rig glaze::glaze)
     # Two asset layers land beside the exe: the framework's fonts
     # (izan-ui's copy hook) and the wallet's own language tables.
     izan_ui_copy_assets(izan)
@@ -265,3 +274,14 @@ target_compile_definitions(izan_tests
     PRIVATE IZAN_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(izan_tests PRIVATE tests)
 add_test(NAME izan_tests COMMAND izan_tests)
+
+# The rig suite rides the UI stack, so it lives behind the same gate
+# as the shell — the trust-plane-only build stays fast.
+if(IZAN_BUILD_UI AND WIN32)
+    add_executable(izan_rig_tests tests/rig_test.cpp)
+    target_link_libraries(izan_rig_tests
+        PRIVATE izan_wallet_rig doctest::doctest)
+    target_compile_definitions(izan_rig_tests
+        PRIVATE IZAN_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+    add_test(NAME izan_rig_tests COMMAND izan_rig_tests)
+endif()

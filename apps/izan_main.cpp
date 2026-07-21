@@ -22,11 +22,7 @@
 
 #include "keyd/child.hpp"
 #include "ui/i18n/catalog.hpp"
-#include "ui/pages/history_page.hpp"
-#include "ui/pages/portfolio_page.hpp"
-#include "ui/pages/send_page.hpp"
-#include "ui/pages/swap_page.hpp"
-#include "ui/pages/vault_page.hpp"
+#include "ui/rig/wallet_rig.hpp"
 #include "ui/shell/app.hpp"
 #include "ui/shell/chrome_state.hpp"
 #include "ui/shell/chrome_widgets.hpp"
@@ -56,47 +52,6 @@ struct Settings {
     std::string layout;
     std::vector<float> dock_panes;
 };
-
-// The dock templates the View menu offers. Building one replaces the
-// whole arrangement: 0 = workbench (wallets over send in the left
-// column, the vault center stage over the assets shelf), 1 = classic
-// three columns (vault flanked by wallets and a stacked right rail).
-void apply_dock_template(ImGuiID dockspace, const ImVec2& size, int tpl)
-{
-    ImGui::DockBuilderRemoveNode(dockspace);
-    ImGui::DockBuilderAddNode(dockspace, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace, size);
-    ImGuiID center = dockspace;
-    if (tpl == 1) {
-        const ImGuiID left = ImGui::DockBuilderSplitNode(
-            center, ImGuiDir_Left, 0.20f, nullptr, &center);
-        ImGuiID right = ImGui::DockBuilderSplitNode(
-            center, ImGuiDir_Right, 0.32f, nullptr, &center);
-        const ImGuiID right_bottom = ImGui::DockBuilderSplitNode(
-            right, ImGuiDir_Down, 0.5f, nullptr, &right);
-        ImGui::DockBuilderDockWindow("###wallet-list", left);
-        ImGui::DockBuilderDockWindow("###vault-page", center);
-        ImGui::DockBuilderDockWindow("###portfolio-page", right);
-        ImGui::DockBuilderDockWindow("###history-page", right);
-        ImGui::DockBuilderDockWindow("###send-page", right_bottom);
-        ImGui::DockBuilderDockWindow("###swap-page", right_bottom);
-    } else {
-        ImGuiID left = ImGui::DockBuilderSplitNode(
-            center, ImGuiDir_Left, 0.27f, nullptr, &center);
-        const ImGuiID left_bottom = ImGui::DockBuilderSplitNode(
-            left, ImGuiDir_Down, 0.48f, nullptr, &left);
-        const ImGuiID bottom = ImGui::DockBuilderSplitNode(
-            center, ImGuiDir_Down, 0.40f, nullptr, &center);
-        ImGui::DockBuilderDockWindow("###wallet-list", left);
-        ImGui::DockBuilderDockWindow("###send-page", left_bottom);
-        ImGui::DockBuilderDockWindow("###swap-page", left_bottom);
-        ImGui::DockBuilderDockWindow("###vault-page", center);
-        // Assets and the ledger share the bottom shelf as tabs.
-        ImGui::DockBuilderDockWindow("###portfolio-page", bottom);
-        ImGui::DockBuilderDockWindow("###history-page", bottom);
-    }
-    ImGui::DockBuilderFinish(dockspace);
-}
 
 ui::LayoutState layout_state_of(const Settings& s)
 {
@@ -278,71 +233,12 @@ int main(int argc, char** argv)
     ui::apply_theme_style_only(chrome.theme_index);
     glfwSetWindowOpacity(app.window(), chrome.window_opacity);
 
-    ui::VaultPage vault(wallets_dir(), ui::executable_dir() / "data",
-        self_exe_path(), settings.active_wallet);
-
-    // A broken chain/token config takes down the portfolio pane, not
-    // the wallet: the vault stays reachable and the error is shown.
-    std::optional<ui::PortfolioPage> portfolio;
-    std::string portfolioError;
-    try {
-        portfolio.emplace(ui::executable_dir() / "data", state_dir(), vault);
-    } catch (const std::exception& e) {
-        portfolioError = e.what();
-    }
-
-    // Same containment for the send pane's chain registry.
-    std::optional<ui::SendPage> send;
-    std::string sendError;
-    try {
-        send.emplace(ui::executable_dir() / "data", state_dir(), vault);
-    } catch (const std::exception& e) {
-        sendError = e.what();
-    }
-
-    // Touching a holding on the assets page walks it to the send form.
-    if (portfolio && send)
-        portfolio->on_send([&send](uint64_t chain_id, const std::string& sym,
-                               const std::string& token, uint8_t decimals) {
-            send->prefill(chain_id, sym, token, decimals);
-        });
-
-    // The swap pane; same containment as its siblings.
-    std::optional<ui::SwapPage> swap;
-    std::string swapError;
-    try {
-        swap.emplace(ui::executable_dir() / "data", state_dir(), vault);
-    } catch (const std::exception& e) {
-        swapError = e.what();
-    }
-
-    // The row menu's swap verb walks a holding to the exchange desk.
-    if (portfolio && swap)
-        portfolio->on_swap([&swap](uint64_t chain_id, const std::string& sym) {
-            swap->prefill(chain_id, sym);
-        });
-
-    // The ledger pane; same containment as its siblings.
-    std::optional<ui::HistoryPage> history;
-    std::string historyError;
-    try {
-        history.emplace(ui::executable_dir() / "data", vault);
-    } catch (const std::exception& e) {
-        historyError = e.what();
-    }
-
-    // A settled delivery anywhere staleness-marks the read-only pages;
-    // their follow logic re-pulls balances and ledger next frame.
-    const auto settled = [&portfolio, &history] {
-        if (portfolio)
-            portfolio->mark_stale();
-        if (history)
-            history->mark_stale();
-    };
-    if (send)
-        send->on_settled(settled);
-    if (swap)
-        swap->on_settled(settled);
+    // The wallet's working middle: pages, containment and wiring live
+    // in the rig; this shell only mounts it.
+    ui::WalletRig rig({ ui::executable_dir() / "data", state_dir(),
+                          wallets_dir(), self_exe_path() },
+        settings.active_wallet);
+    ui::VaultPage& vault = rig.vault();
 
     app.set_render_callback([&] {
         app.begin_frame();
@@ -504,25 +400,15 @@ int main(int argc, char** argv)
             pending_layout = 0;
         if (pending_layout >= 0 && dock_frame >= 2) {
             ui::dock_ledger_import({}); // the old anchors died with the tree
-            apply_dock_template(dockspace, dock_size, pending_layout);
+            ui::wallet_dock_template(
+                dockspace, dock_size.x, dock_size.y, pending_layout);
         }
-        // A window added in a newer build floats over a layout saved
-        // by an older one; adopt the ledger into the assets shelf,
-        // where the templates would have put it.
+        // Windows added since the saved layout was written float over
+        // it; the rig knows where its own windows belong.
         static bool adopted = false;
         if (!adopted && dock_frame == 2 && !settings.layout.empty()) {
             adopted = true;
-            ImGuiWindow* ledger = ImGui::FindWindowByName("###history-page");
-            ImGuiWindow* shelf = ImGui::FindWindowByName("###portfolio-page");
-            if (ledger && shelf && ledger->DockId == 0 && shelf->DockId != 0)
-                ImGui::DockBuilderDockWindow("###history-page", shelf->DockId);
-            // Same adoption for the exchange desk: layouts saved before
-            // the swap window existed float it — tuck it in beside the
-            // send page, where the templates would have put it.
-            ImGuiWindow* desk = ImGui::FindWindowByName("###swap-page");
-            ImGuiWindow* teller = ImGui::FindWindowByName("###send-page");
-            if (desk && teller && desk->DockId == 0 && teller->DockId != 0)
-                ImGui::DockBuilderDockWindow("###swap-page", teller->DockId);
+            ui::wallet_dock_adopt_saved();
         }
         static int dump_frame = 0;
         ++dump_frame;
@@ -553,40 +439,7 @@ int main(int argc, char** argv)
         ImGui::PopStyleColor();
         ImGui::PopStyleVar();
 
-        vault.draw(app.window(), tr);
-        if (send) {
-            send->draw(app.window(), tr);
-        } else {
-            ImGui::Begin(
-                (std::string(tr("send.title")) + "###send-page").c_str());
-            ImGui::TextWrapped("%s", sendError.c_str());
-            ImGui::End();
-        }
-        if (swap) {
-            swap->draw(app.window(), tr);
-        } else {
-            ImGui::Begin(
-                (std::string(tr("swap.title")) + "###swap-page").c_str());
-            ImGui::TextWrapped("%s", swapError.c_str());
-            ImGui::End();
-        }
-        if (portfolio) {
-            portfolio->draw(tr);
-        } else {
-            ImGui::Begin(
-                (std::string(tr("portfolio.title")) + "###portfolio-page")
-                    .c_str());
-            ImGui::TextWrapped("%s", portfolioError.c_str());
-            ImGui::End();
-        }
-        if (history) {
-            history->draw(tr);
-        } else {
-            ImGui::Begin(
-                (std::string(tr("history.title")) + "###history-page").c_str());
-            ImGui::TextWrapped("%s", historyError.c_str());
-            ImGui::End();
-        }
+        rig.draw(app.window(), tr);
 
         ui::draw_status_bar(chrome, tr("status.ready"));
         ui::draw_snap_layout_popup(app.window(), chrome);
@@ -626,8 +479,8 @@ int main(int argc, char** argv)
             std::vector<unsigned char> px(std::size_t(row) * h);
             glPixelStorei(GL_PACK_ALIGNMENT, 4);
             glReadBuffer(GL_FRONT);
-            glReadPixels(0, 0, w, h, 0x80E0 /* GL_BGR */, GL_UNSIGNED_BYTE,
-                px.data());
+            glReadPixels(
+                0, 0, w, h, 0x80E0 /* GL_BGR */, GL_UNSIGNED_BYTE, px.data());
             unsigned char hdr[54] = { 'B', 'M' };
             const std::uint32_t size = 54 + std::uint32_t(px.size());
             std::memcpy(hdr + 2, &size, 4);
